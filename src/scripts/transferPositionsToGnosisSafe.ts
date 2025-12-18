@@ -6,7 +6,7 @@ import * as readline from 'readline';
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
 const RPC_URL = ENV.RPC_URL;
 
-// Polymarket Conditional Tokens contract на Polygon (ERC1155)
+// Polymarket Conditional Tokens contract on Polygon (ERC1155)
 const CONDITIONAL_TOKENS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045';
 
 interface Position {
@@ -36,25 +36,25 @@ const ask = (question: string): Promise<string> => {
 };
 
 async function transferPositions() {
-    console.log('\n🔄 ПЕРЕНОС ПОЗИЦИЙ С EOA НА GNOSIS SAFE\n');
+    console.log('\n🔄 TRANSFERRING POSITIONS FROM EOA TO GNOSIS SAFE\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const gnosisSafeAddress =
         (process.env.TRANSFER_TO_ADDRESS || process.env.GNOSIS_SAFE_ADDRESS || '').trim();
 
     if (!gnosisSafeAddress) {
-        console.log('❌ Не указан адрес получателя (Gnosis Safe)');
-        console.log('   Укажите переменную окружения: TRANSFER_TO_ADDRESS=0x...');
-        console.log('   Пример: TRANSFER_TO_ADDRESS=0xYourSafe npm run transfer-to-gnosis\n');
+        console.log('❌ Recipient address not specified (Gnosis Safe)');
+        console.log('   Specify environment variable: TRANSFER_TO_ADDRESS=0x...');
+        console.log('   Example: TRANSFER_TO_ADDRESS=0xYourSafe npm run transfer-to-gnosis\n');
         process.exit(1);
     }
 
     if (!isValidEthereumAddress(gnosisSafeAddress)) {
-        console.log('❌ Некорректный адрес получателя:', gnosisSafeAddress);
+        console.log('❌ Invalid recipient address:', gnosisSafeAddress);
         process.exit(1);
     }
 
-    console.log('📍 Адреса:\n');
+    console.log('📍 Addresses:\n');
     const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
     const eoaAddress = wallet.address;
@@ -63,43 +63,43 @@ async function transferPositions() {
     console.log(`   TO (Gnosis Safe):    ${gnosisSafeAddress}\n`);
 
     if (process.env.CONFIRM_TRANSFER !== 'true') {
-        console.log('⚠️  ВНИМАНИЕ: этот скрипт может перемещать ваши позиции/средства.');
+        console.log('⚠️  WARNING: this script can move your positions/funds.');
         const confirmation = await ask(
-            `Введите адрес получателя для подтверждения (${gnosisSafeAddress}): `
+            `Enter recipient address for confirmation (${gnosisSafeAddress}): `
         );
         if (confirmation.toLowerCase() !== gnosisSafeAddress.toLowerCase()) {
-            console.log('❌ Подтверждение не совпало. Отмена.');
+            console.log('❌ Confirmation did not match. Cancelled.');
             process.exit(1);
         }
-        console.log('✅ Подтверждено.\n');
+        console.log('✅ Confirmed.\n');
     }
 
-    // 1. Получаем все позиции на EOA
+    // 1. Get all positions on EOA
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 1: Получение позиций на EOA\n');
+    console.log('📋 STEP 1: Getting positions on EOA\n');
 
     const positions: Position[] = await fetchData(
         `https://data-api.polymarket.com/positions?user=${eoaAddress}`
     );
 
     if (!positions || positions.length === 0) {
-        console.log('❌ Нет позиций на EOA для переноса\n');
+        console.log('❌ No positions on EOA to transfer\n');
         return;
     }
 
-    console.log(`✅ Найдено позиций: ${positions.length}`);
+    console.log(`✅ Found positions: ${positions.length}`);
     console.log(
-        `💰 Общая стоимость: $${positions.reduce((s, p) => s + p.currentValue, 0).toFixed(2)}\n`
+        `💰 Total value: $${positions.reduce((s, p) => s + p.currentValue, 0).toFixed(2)}\n`
     );
 
-    // 2. Подключаемся к сети
+    // 2. Connect to network
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 2: Подключение к Polygon\n');
+    console.log('📋 STEP 2: Connecting to Polygon\n');
 
-    console.log(`✅ Подключено к Polygon\n`);
+    console.log(`✅ Connected to Polygon\n`);
     console.log(`   Wallet: ${wallet.address}\n`);
 
-    // 3. ERC1155 ABI для safeTransferFrom
+    // 3. ERC1155 ABI for safeTransferFrom
     const erc1155Abi = [
         'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
         'function balanceOf(address account, uint256 id) view returns (uint256)',
@@ -107,9 +107,9 @@ async function transferPositions() {
         'function setApprovalForAll(address operator, bool approved)',
     ];
 
-    // 4. Переносим каждую позицию
+    // 4. Transfer each position
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 3: Перенос позиций\n');
+    console.log('📋 STEP 3: Transferring positions\n');
 
     let successCount = 0;
     let failureCount = 0;
@@ -117,7 +117,7 @@ async function transferPositions() {
     for (let i = 0; i < positions.length; i++) {
         const pos = positions[i];
 
-        console.log(`\n📦 Позиция ${i + 1}/${positions.length}`);
+        console.log(`\n📦 Position ${i + 1}/${positions.length}`);
         console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         console.log(`Market: ${pos.title || 'Unknown'}`);
         console.log(`Outcome: ${pos.outcome || 'Unknown'}`);
@@ -126,20 +126,20 @@ async function transferPositions() {
         console.log(`Token ID: ${pos.asset.slice(0, 20)}...`);
 
         try {
-            // Conditional Tokens контракт (хранит ERC1155 токены)
+            // Conditional Tokens contract (stores ERC1155 tokens)
             const ctfContract = new ethers.Contract(CONDITIONAL_TOKENS, erc1155Abi, wallet);
 
-            // Проверяем баланс на EOA
+            // Check balance on EOA
             const balance = await ctfContract.balanceOf(eoaAddress, pos.asset);
-            console.log(`\n📊 Баланс на EOA: ${ethers.utils.formatUnits(balance, 0)} tokens`);
+            console.log(`\n📊 Balance on EOA: ${ethers.utils.formatUnits(balance, 0)} tokens`);
 
             if (balance.isZero()) {
-                console.log('⚠️  Пропуск: Баланс равен нулю\n');
+                console.log('⚠️  Skip: Balance is zero\n');
                 failureCount++;
                 continue;
             }
 
-            // Получаем gas price
+            // Get gas price
             const gasPrice = await provider.getGasPrice();
             const gasPriceWithBuffer = gasPrice.mul(150).div(100); // +50% buffer
 
@@ -147,8 +147,8 @@ async function transferPositions() {
                 `⛽ Gas price: ${ethers.utils.formatUnits(gasPriceWithBuffer, 'gwei')} Gwei\n`
             );
 
-            // Переносим токены
-            console.log(`🔄 Перенос ${ethers.utils.formatUnits(balance, 0)} токенов...`);
+            // Transfer tokens
+            console.log(`🔄 Transferring ${ethers.utils.formatUnits(balance, 0)} tokens...`);
 
             const transferTx = await ctfContract.safeTransferFrom(
                 eoaAddress,
@@ -162,41 +162,41 @@ async function transferPositions() {
                 }
             );
 
-            console.log(`⏳ TX отправлена: ${transferTx.hash}`);
-            console.log('⏳ Ожидание подтверждения...');
+            console.log(`⏳ TX sent: ${transferTx.hash}`);
+            console.log('⏳ Waiting for confirmation...');
 
             const receipt = await transferTx.wait();
 
-            console.log(`✅ УСПЕШНО! Block: ${receipt.blockNumber}`);
+            console.log(`✅ SUCCESS! Block: ${receipt.blockNumber}`);
             console.log(`   Gas used: ${receipt.gasUsed.toString()}`);
 
             successCount++;
 
-            // Пауза между переносами
+            // Pause between transfers
             if (i < positions.length - 1) {
-                console.log('\n⏳ Пауза 3 секунды...\n');
+                console.log('\n⏳ Pause 3 seconds...\n');
                 await new Promise((resolve) => setTimeout(resolve, 3000));
             }
         } catch (error: any) {
-            console.log(`\n❌ ОШИБКА при переносе:`);
+            console.log(`\n❌ ERROR during transfer:`);
             console.log(`   ${error.message}\n`);
             failureCount++;
         }
     }
 
-    // 5. Итоги
+    // 5. Summary
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📊 ИТОГИ ПЕРЕНОСА');
+    console.log('📊 TRANSFER SUMMARY');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log(`✅ Успешно перенесено: ${successCount}/${positions.length}`);
-    console.log(`❌ Ошибок: ${failureCount}/${positions.length}\n`);
+    console.log(`✅ Successfully transferred: ${successCount}/${positions.length}`);
+    console.log(`❌ Errors: ${failureCount}/${positions.length}\n`);
 
-    // 6. Проверяем результат
+    // 6. Check result
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 4: Проверка результата\n');
+    console.log('📋 STEP 4: Checking result\n');
 
-    console.log('⏳ Ждем 5 секунд для обновления данных API...\n');
+    console.log('⏳ Waiting 5 seconds for API data update...\n');
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     const eoaPositionsAfter: Position[] = await fetchData(
@@ -207,23 +207,23 @@ async function transferPositions() {
         `https://data-api.polymarket.com/positions?user=${gnosisSafeAddress}`
     );
 
-    console.log('📊 ПОСЛЕ ПЕРЕНОСА:\n');
-    console.log(`   EOA:          ${eoaPositionsAfter?.length || 0} позиций`);
-    console.log(`   Gnosis Safe:  ${gnosisPositionsAfter?.length || 0} позиций\n`);
+    console.log('📊 AFTER TRANSFER:\n');
+    console.log(`   EOA:          ${eoaPositionsAfter?.length || 0} positions`);
+    console.log(`   Gnosis Safe:  ${gnosisPositionsAfter?.length || 0} positions\n`);
 
     if (gnosisPositionsAfter && gnosisPositionsAfter.length > 0) {
-        console.log('✅ Позиции успешно перенесены на Gnosis Safe!\n');
-        console.log('🔗 Проверьте на Polymarket:\n');
+        console.log('✅ Positions successfully transferred to Gnosis Safe!\n');
+        console.log('🔗 Check on Polymarket:\n');
         console.log(`   https://polymarket.com/profile/${gnosisSafeAddress}\n`);
     } else {
-        console.log('⚠️  API еще не обновилось. Подождите несколько минут и проверьте вручную.\n');
+        console.log('⚠️  API not updated yet. Wait a few minutes and check manually.\n');
     }
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('✅ Скрипт завершен!\n');
+    console.log('✅ Script completed!\n');
 }
 
 transferPositions().catch((error) => {
-    console.error('\n❌ Критическая ошибка:', error);
+    console.error('\n❌ Critical error:', error);
     process.exit(1);
 });

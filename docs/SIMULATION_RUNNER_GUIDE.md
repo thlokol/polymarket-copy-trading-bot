@@ -1,178 +1,178 @@
 # Simulation Runner Guide
 
-Удобный инструмент для запуска и сравнения множественных симуляций copy trading с различными параметрами.
+A convenient tool for running and comparing multiple copy trading simulations with different parameters.
 
-## Быстрый старт
+## Quick Start
 
-### Интерактивный режим (рекомендуется)
+### Interactive mode (recommended)
 
-Запустите интерактивное меню для настройки симуляций:
+Launch the interactive menu to configure simulations:
 
 ```bash
 npm run sim
 ```
 
-Вам будет предложено:
+You will be prompted to:
 
-1. Выбрать пресет (quick/standard/full)
-2. Указать адреса трейдеров (или использовать дефолтные)
+1. Choose a preset (quick/standard/full)
+2. Specify trader addresses (or use defaults)
 
-### Готовые пресеты
+### Ready presets
 
 ```bash
-# Быстрый тест (7 дней, 2 мультипликатора)
+# Quick test (7 days, 2 multipliers)
 npm run sim quick
 
-# Стандартный тест (30 дней, 3 мультипликатора) - РЕКОМЕНДУЕТСЯ
+# Standard test (30 days, 3 multipliers) - RECOMMENDED
 npm run sim standard
 
-# Полный тест (90 дней, 4 мультипликатора)
+# Full test (90 days, 4 multipliers)
 npm run sim full
 ```
 
-### Кастомная симуляция
+### Custom simulation
 
 ```bash
 npm run sim custom <trader_address> [days] [multiplier]
 
-# Примеры:
+# Examples:
 npm run sim custom 0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b 30 2.0
 npm run sim custom 0x6bab41a0dc40d6dd4c1a915b8c01969479fd1292 60 1.5
 ```
 
-## Пресеты
+## Presets
 
-### Quick (Быстрый)
+### Quick (Fast)
 
-- **История:** 7 дней
-- **Макс. трейдов:** 500
-- **Мультипликаторы:** 1.0x, 2.0x
-- **Время выполнения:** ~2-3 минуты
-- **Когда использовать:** Быстрая проверка трейдера, первичный анализ
+- **History:** 7 days
+- **Max trades:** 500
+- **Multipliers:** 1.0x, 2.0x
+- **Execution time:** ~2-3 minutes
+- **When to use:** Quick trader check, initial analysis
 
-### Standard (Стандартный) ⭐ РЕКОМЕНДУЕТСЯ
+### Standard (Standard) ⭐ RECOMMENDED
 
-- **История:** 30 дней
-- **Макс. трейдов:** 2000
-- **Мультипликаторы:** 0.5x, 1.0x, 2.0x
-- **Время выполнения:** ~5-10 минут
-- **Когда использовать:** Основной анализ перед началом копирования
+- **History:** 30 days
+- **Max trades:** 2000
+- **Multipliers:** 0.5x, 1.0x, 2.0x
+- **Execution time:** ~5-10 minutes
+- **When to use:** Main analysis before starting copying
 
-### Full (Полный)
+### Full (Complete)
 
-- **История:** 90 дней
-- **Макс. трейдов:** 5000
-- **Мультипликаторы:** 0.5x, 1.0x, 2.0x, 3.0x
-- **Время выполнения:** ~15-30 минут
-- **Когда использовать:** Глубокий анализ долгосрочной стратегии
+- **History:** 90 days
+- **Max trades:** 5000
+- **Multipliers:** 0.5x, 1.0x, 2.0x, 3.0x
+- **Execution time:** ~15-30 minutes
+- **When to use:** Deep analysis of long-term strategy
 
-## Сравнение результатов
+## Comparing results
 
-После запуска симуляций используйте команду `compare` для анализа:
+After running simulations, use the `compare` command for analysis:
 
-### Показать все результаты
+### Show all results
 
 ```bash
 npm run compare
 ```
 
-Выводит:
+Outputs:
 
-- Таблицу всех симуляций по трейдерам
-- Топ-5 лучших конфигураций
-- 3 худших конфигурации
-- Агрегированную статистику
+- Table of all simulations by traders
+- Top-5 best configurations
+- 3 worst configurations
+- Aggregated statistics
 
-### Топ результаты
+### Top results
 
 ```bash
-# Показать топ-10 лучших
+# Show top-10 best
 npm run compare best 10
 
-# Топ-3
+# Top-3
 npm run compare best 3
 ```
 
-### Худшие результаты
+### Worst results
 
 ```bash
-# Показать 5 худших
+# Show 5 worst
 npm run compare worst 5
 ```
 
-### Агрегированная статистика
+### Aggregated statistics
 
 ```bash
 npm run compare stats
 ```
 
-Показывает:
+Shows:
 
-- Общее количество симуляций
-- Процент прибыльных/убыточных
-- Средний ROI
-- Средний P&L
-- Общее количество скопированных/пропущенных трейдов
+- Total number of simulations
+- Percentage profitable/loss-making
+- Average ROI
+- Average P&L
+- Total number of copied/skipped trades
 
-### Детальная информация
+### Detailed information
 
 ```bash
 npm run compare detail <name_part>
 
-# Примеры:
+# Examples:
 npm run compare detail std_m2p0
 npm run compare detail 0x7c3d
 ```
 
-## Примеры использования
+## Usage examples
 
-### Сценарий 1: Оценка нового трейдера
+### Scenario 1: Evaluating a new trader
 
 ```bash
-# 1. Быстрая проверка
+# 1. Quick check
 npm run sim custom 0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b 7 1.0
 
-# 2. Если результат хороший - полный анализ
+# 2. If the result is good - full analysis
 npm run sim custom 0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b 30 1.0
 
-# 3. Тестирование разных мультипликаторов
+# 3. Testing different multipliers
 npm run sim custom 0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b 30 0.5
 npm run sim custom 0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b 30 2.0
 
-# 4. Сравнение результатов
+# 4. Comparing results
 npm run compare
 ```
 
-### Сценарий 2: Сравнение нескольких трейдеров
+### Scenario 2: Comparing multiple traders
 
 ```bash
-# Запуск стандартного теста для всех трейдеров
+# Run standard test for all traders
 npm run sim standard
 
-# Сравнение результатов
+# Comparing results
 npm run compare
 
-# Детальный просмотр лучшего
+# Detailed view of the best
 npm run compare best 1
 ```
 
-### Сценарий 3: Оптимизация мультипликатора
+### Scenario 3: Optimizing multiplier
 
 ```bash
-# Тестирование одного трейдера с разными мультипликаторами
+# Testing one trader with different multipliers
 npm run sim custom 0x7c3d... 30 0.5
 npm run sim custom 0x7c3d... 30 1.0
 npm run sim custom 0x7c3d... 30 1.5
 npm run sim custom 0x7c3d... 30 2.0
 npm run sim custom 0x7c3d... 30 3.0
 
-# Сравнение для выбора оптимального
+# Comparison to choose the optimal
 npm run compare
 ```
 
-## Структура результатов
+## Results structure
 
-Все результаты сохраняются в `simulation_results/`:
+All results are saved in `simulation_results/`:
 
 ```
 simulation_results/
@@ -182,13 +182,13 @@ simulation_results/
 └── ...
 ```
 
-Формат имени файла:
+File name format:
 
 ```
 new_logic_<trader>_<days>d_<tag>_<date>.json
 ```
 
-### Формат JSON результата
+### JSON result format
 
 ```json
 {
@@ -212,37 +212,37 @@ new_logic_<trader>_<days>d_<tag>_<date>.json
 }
 ```
 
-## Переменные окружения для симуляций
+## Environment variables for simulations
 
-Скрипт поддерживает следующие переменные в `.env`:
+The script supports the following variables in `.env`:
 
 ```bash
-# Используются основным скриптом simulateProfitability.ts
+# Used by the main script simulateProfitability.ts
 
-# Адрес трейдера для симуляции
+# Trader address for simulation
 SIM_TRADER_ADDRESS = '0x7c3db723f1d4d8cb9c550095203b686cb11e5c6b'
 
-# Период истории (дни)
+# History period (days)
 SIM_HISTORY_DAYS = 30
 
-# Минимальный размер ордера (USD)
+# Minimum order size (USD)
 SIM_MIN_ORDER_USD = 1.0
 
-# Максимальное количество трейдов для загрузки
+# Maximum number of trades to load
 SIM_MAX_TRADES = 5000
 
-# Тег для файла результата
+# Tag for result file
 SIM_RESULT_TAG = 'test'
 
-# Мультипликатор (используется TRADE_MULTIPLIER из основного .env)
+# Multiplier (uses TRADE_MULTIPLIER from main .env)
 TRADE_MULTIPLIER = 2.0
 ```
 
-**Примечание:** При использовании `npm run sim` эти переменные устанавливаются автоматически.
+**Note:** When using `npm run sim`, these variables are set automatically.
 
-## Кэширование данных
+## Data caching
 
-Исторические трейды кэшируются в `trader_data_cache/`:
+Historical trades are cached in `trader_data_cache/`:
 
 ```
 trader_data_cache/
@@ -250,193 +250,193 @@ trader_data_cache/
 └── 0x6bab41a0dc40d6dd4c1a915b8c01969479fd1292_30d_2025-10-22.json
 ```
 
-**Преимущества:**
+**Advantages:**
 
-- Повторные симуляции выполняются мгновенно
-- Экономия запросов к API Polymarket
-- Кэш обновляется раз в день автоматически
+- Repeat simulations run instantly
+- Saving API requests to Polymarket
+- Cache is updated once a day automatically
 
-**Очистка кэша:**
+**Cache clearing:**
 
 ```bash
 rm -rf trader_data_cache/
 ```
 
-## Интерпретация результатов
+## Interpreting results
 
-### Хорошие показатели ✅
+### Good indicators ✅
 
-- **ROI > 15%:** Отличная доходность
-- **Copy rate > 70%:** Большинство трейдов достаточно большие для копирования
-- **Skip rate < 30%:** Не теряете много возможностей
-- **Положительный Unrealized P&L:** Открытые позиции в плюсе
+- **ROI > 15%:** Excellent profitability
+- **Copy rate > 70%:** Most trades are large enough to copy
+- **Skip rate < 30%:** You don't miss many opportunities
+- **Positive Unrealized P&L:** Open positions in profit
 
-### Предупреждающие знаки ⚠️
+### Warning signs ⚠️
 
-- **ROI < 0%:** Убыточная стратегия
-- **Skip rate > 50%:** Слишком много пропущенных трейдов (нужно больше капитала)
-- **Copy rate < 50%:** Трейдер делает слишком маленькие трейды для вашего капитала
-- **Большой отрицательный Unrealized P&L:** Открытые позиции в минусе
+- **ROI < 0%:** Loss-making strategy
+- **Skip rate > 50%:** Too many skipped trades (need more capital)
+- **Copy rate < 50%:** Trader makes trades too small for your capital
+- **Large negative Unrealized P&L:** Open positions in loss
 
-### Выбор оптимального мультипликатора
+### Choosing the optimal multiplier
 
-| Мультипликатор | Риск          | Когда использовать                     |
+| Multiplier | Risk          | When to use                     |
 | -------------- | ------------- | -------------------------------------- |
-| 0.5x           | Низкий        | Тестирование, маленький капитал        |
-| 1.0x           | Средний       | Стандартное копирование                |
-| 2.0x           | Высокий       | Уверенность в трейдере                 |
-| 3.0x+          | Очень высокий | Агрессивная стратегия, только с опытом |
+| 0.5x           | Low        | Testing, small capital        |
+| 1.0x           | Medium       | Standard copying                |
+| 2.0x           | High       | Confidence in the trader                 |
+| 3.0x+          | Very high | Aggressive strategy, only with experience |
 
-## Советы и лучшие практики
+## Tips and best practices
 
-### 1. Начинайте с консервативного подхода
+### 1. Start with a conservative approach
 
 ```bash
-# Первый запуск - стандартный тест
+# First run - standard test
 npm run sim standard
 
-# Анализ результатов
+# Analyzing results
 npm run compare
 
-# Если результаты хорошие - тест с более высоким мультипликатором
+# If results are good - test with higher multiplier
 npm run sim custom <best_trader> 30 2.0
 ```
 
-### 2. Проверяйте несколько периодов
+### 2. Check multiple periods
 
 ```bash
-# Краткосрочная производительность
+# Short-term performance
 npm run sim custom <trader> 7 1.0
 
-# Среднесрочная
+# Medium-term
 npm run sim custom <trader> 30 1.0
 
-# Долгосрочная
+# Long-term
 npm run sim custom <trader> 90 1.0
 ```
 
-### 3. Диверсифицируйте
+### 3. Diversify
 
-Не полагайтесь на одного трейдера:
+Don't rely on one trader:
 
 ```bash
-# Запустите симуляции для 3-5 трейдеров
+# Run simulations for 3-5 traders
 npm run sim
 
-# При выборе укажите несколько адресов
+# When selecting, specify multiple addresses
 # 0xTrader1, 0xTrader2, 0xTrader3
 
-# Сравните и выберите топ-2 или топ-3
+# Compare and select top-2 or top-3
 npm run compare best 3
 ```
 
-### 4. Учитывайте skip rate
+### 4. Consider skip rate
 
-Если skip rate > 40%, рассмотрите:
+If skip rate > 40%, consider:
 
-- Увеличение стартового капитала
-- Снижение минимального размера ордера (если возможно)
-- Выбор трейдера с большими позициями
+- Increasing starting capital
+- Reducing minimum order size (if possible)
+- Choosing a trader with larger positions
 
-### 5. Регулярно обновляйте анализ
+### 5. Regularly update analysis
 
 ```bash
-# Запускайте симуляции раз в неделю
+# Run simulations once a week
 npm run sim standard
 
-# Сравнивайте с предыдущими результатами
+# Compare with previous results
 npm run compare
 ```
 
 ## Troubleshooting
 
-### Ошибка: "No simulation results found"
+### Error: "No simulation results found"
 
 ```bash
-# Запустите симуляцию сначала
+# Run simulation first
 npm run sim quick
 ```
 
-### Ошибка: "Failed to fetch trades"
+### Error: "Failed to fetch trades"
 
-Проверьте:
+Check:
 
-- Интернет соединение
-- Правильность адреса трейдера
-- Rate limit API Polymarket (подождите 1-2 минуты)
+- Internet connection
+- Correctness of trader address
+- Polymarket API rate limit (wait 1-2 minutes)
 
-### Симуляция работает слишком долго
+### Simulation runs too long
 
 ```bash
-# Используйте quick preset
+# Use quick preset
 npm run sim quick
 
-# Или ограничьте количество трейдов
+# Or limit the number of trades
 SIM_MAX_TRADES=500 npm run simulate
 ```
 
-### Много пропущенных трейдов (high skip rate)
+### Many skipped trades (high skip rate)
 
-Причины:
+Reasons:
 
-1. Трейдер делает очень маленькие трейды
-2. Ваш симулируемый капитал слишком мал
+1. Trader makes very small trades
+2. Your simulated capital is too small
 
-Решения:
+Solutions:
 
-- Увеличьте `STARTING_CAPITAL` в `simulateProfitability.ts`
-- Используйте меньший мультипликатор (0.5x)
-- Выберите другого трейдера с большими позициями
+- Increase `STARTING_CAPITAL` in `simulateProfitability.ts`
+- Use a smaller multiplier (0.5x)
+- Choose another trader with larger positions
 
-## Дополнительные команды
+## Additional commands
 
-### Просмотр help
+### View help
 
 ```bash
 npm run sim help
 npm run compare help
 ```
 
-### Очистка старых результатов
+### Clearing old results
 
 ```bash
-# Удалить все результаты
+# Delete all results
 rm -rf simulation_results/*.json
 
-# Удалить результаты старше 7 дней
+# Delete results older than 7 days
 find simulation_results/ -name "*.json" -mtime +7 -delete
 ```
 
-### Экспорт результатов
+### Export results
 
 ```bash
-# Скопировать все результаты в архив
+# Copy all results to archive
 tar -czf simulation_results_$(date +%Y%m%d).tar.gz simulation_results/
 
-# Или просто скопировать папку
+# Or just copy the folder
 cp -r simulation_results/ simulation_results_backup/
 ```
 
-## Следующие шаги
+## Next steps
 
-После анализа симуляций:
+After analyzing simulations:
 
-1. **Выберите 2-3 лучших трейдера** по ROI и стабильности
-2. **Определите оптимальный мультипликатор** для каждого
-3. **Обновите `.env`** с выбранными настройками:
+1. **Choose 2-3 best traders** by ROI and stability
+2. **Determine the optimal multiplier** for each
+3. **Update `.env`** with selected settings:
     ```bash
     USER_ADDRESSES = '0xTrader1, 0xTrader2, 0xTrader3'
     TRADE_MULTIPLIER = 1.5
     ```
-4. **Запустите бота в preview mode** для финальной проверки:
+4. **Run the bot in preview mode** for final check:
     ```bash
     PREVIEW_MODE = true
     ```
-5. **Начните с малого капитала** для реального тестирования
-6. **Мониторьте результаты** и периодически запускайте новые симуляции
+5. **Start with small capital** for real testing
+6. **Monitor results** and periodically run new simulations
 
 ---
 
-**Помните:** Прошлые результаты не гарантируют будущую доходность. Всегда начинайте с малого и постепенно увеличивайте капитал.
+**Remember:** Past results do not guarantee future profitability. Always start small and gradually increase capital.
 
-Удачных симуляций! 📊🚀
+Good luck with simulations! 📊🚀

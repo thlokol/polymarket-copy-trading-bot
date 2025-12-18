@@ -7,77 +7,77 @@ const PROXY_WALLET = ENV.PROXY_WALLET;
 const RPC_URL = ENV.RPC_URL;
 
 async function analyzeWallets() {
-    console.log('\n🔍 АНАЛИЗ КОШЕЛЬКОВ И АДРЕСОВ\n');
+    console.log('\n🔍 WALLET AND ADDRESS ANALYSIS\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 1. Получаем EOA адрес из приватного ключа
+    // 1. Get EOA address from private key
     const wallet = new ethers.Wallet(PRIVATE_KEY);
     const eoaAddress = wallet.address;
 
-    console.log('📋 ШАГ 1: Адрес из приватного ключа (EOA)\n');
+    console.log('📋 STEP 1: Address from private key (EOA)\n');
     console.log(`   ${eoaAddress}\n`);
 
-    // 2. Показываем PROXY_WALLET из .env
-    console.log('📋 ШАГ 2: PROXY_WALLET из .env\n');
+    // 2. Show PROXY_WALLET from .env
+    console.log('📋 STEP 2: PROXY_WALLET from .env\n');
     console.log(`   ${PROXY_WALLET}\n`);
 
-    // 3. Сравниваем
+    // 3. Compare addresses
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('🔎 СРАВНЕНИЕ:\n');
+    console.log('🔎 COMPARISON:\n');
 
     if (eoaAddress.toLowerCase() === PROXY_WALLET.toLowerCase()) {
-        console.log('   ⚠️  EOA И PROXY_WALLET - ЭТО ОДИН И ТОТ ЖЕ АДРЕС!\n');
-        console.log('   Это значит, что в .env указан EOA адрес, а не proxy wallet.\n');
-        console.log('   Polymarket должен был создать отдельный proxy wallet для этого EOA,');
-        console.log('   но бот использует сам EOA напрямую.\n');
+        console.log('   ⚠️  EOA AND PROXY_WALLET ARE THE SAME ADDRESS!\n');
+        console.log('   This means the .env file contains the EOA address, not a proxy wallet.\n');
+        console.log('   Polymarket should have created a separate proxy wallet for this EOA,');
+        console.log('   but the bot is using the EOA directly.\n');
     } else {
-        console.log('   ✅ EOA и PROXY_WALLET - это разные адреса\n');
-        console.log('   EOA (владелец):     ', eoaAddress);
-        console.log('   PROXY (для торговли):', PROXY_WALLET, '\n');
+        console.log('   ✅ EOA and PROXY_WALLET are different addresses\n');
+        console.log('   EOA (owner):        ', eoaAddress);
+        console.log('   PROXY (for trading):', PROXY_WALLET, '\n');
     }
 
-    // 4. Проверяем является ли PROXY_WALLET смарт-контрактом
+    // 4. Check if PROXY_WALLET is a smart contract
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 3: Проверка типа PROXY_WALLET\n');
+    console.log('📋 STEP 3: Checking PROXY_WALLET type\n');
 
     const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
     const code = await provider.getCode(PROXY_WALLET);
     const isContract = code !== '0x';
 
     if (isContract) {
-        console.log('   ✅ PROXY_WALLET является смарт-контрактом (Gnosis Safe)\n');
-        console.log('   Это правильная конфигурация для Polymarket.\n');
+        console.log('   ✅ PROXY_WALLET is a smart contract (Gnosis Safe)\n');
+        console.log('   This is the correct configuration for Polymarket.\n');
     } else {
-        console.log('   ⚠️  PROXY_WALLET НЕ является смарт-контрактом!\n');
-        console.log('   Это обычный EOA адрес.\n');
-        console.log('   Для Polymarket обычно используется Gnosis Safe proxy.\n');
+        console.log('   ⚠️  PROXY_WALLET is NOT a smart contract!\n');
+        console.log('   This is a regular EOA address.\n');
+        console.log('   Polymarket typically uses a Gnosis Safe proxy.\n');
     }
 
-    // 5. Проверяем активность обоих адресов
+    // 5. Check activity on both addresses
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 4: Активность на Polymarket\n');
+    console.log('📋 STEP 4: Polymarket activity\n');
 
     try {
         const proxyPositions: any[] = await fetchData(
             `https://data-api.polymarket.com/positions?user=${PROXY_WALLET}`
         );
         console.log(`   PROXY_WALLET (${PROXY_WALLET.slice(0, 10)}...):`);
-        console.log(`   • Позиций: ${proxyPositions?.length || 0}\n`);
+        console.log(`   • Positions: ${proxyPositions?.length || 0}\n`);
 
         if (eoaAddress.toLowerCase() !== PROXY_WALLET.toLowerCase()) {
             const eoaPositions: any[] = await fetchData(
                 `https://data-api.polymarket.com/positions?user=${eoaAddress}`
             );
             console.log(`   EOA (${eoaAddress.slice(0, 10)}...):`);
-            console.log(`   • Позиций: ${eoaPositions?.length || 0}\n`);
+            console.log(`   • Positions: ${eoaPositions?.length || 0}\n`);
         }
     } catch (error) {
-        console.log('   ⚠️  Не удалось получить данные о позициях\n');
+        console.log('   ⚠️  Failed to retrieve position data\n');
     }
 
-    // 6. Проверяем связь через API активности
+    // 6. Check connection via activity API
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 5: Проверка proxyWallet в транзакциях\n');
+    console.log('📋 STEP 5: Checking proxyWallet in transactions\n');
 
     try {
         const activities: any[] = await fetchData(
@@ -88,62 +88,62 @@ async function analyzeWallets() {
             const firstTrade = activities[0];
             const proxyWalletInTrade = firstTrade.proxyWallet;
 
-            console.log(`   Адрес из .env:              ${PROXY_WALLET}`);
-            console.log(`   proxyWallet в транзакциях:  ${proxyWalletInTrade}\n`);
+            console.log(`   Address from .env:              ${PROXY_WALLET}`);
+            console.log(`   proxyWallet in transactions:    ${proxyWalletInTrade}\n`);
 
             if (proxyWalletInTrade.toLowerCase() === PROXY_WALLET.toLowerCase()) {
-                console.log('   ✅ Адреса совпадают!\n');
+                console.log('   ✅ Addresses match!\n');
             } else {
-                console.log('   ⚠️  АДРЕСА НЕ СОВПАДАЮТ!\n');
-                console.log('   Это может означать, что Polymarket использует другой proxy.\n');
+                console.log('   ⚠️  ADDRESSES DO NOT MATCH!\n');
+                console.log('   This may mean Polymarket is using a different proxy.\n');
             }
         }
     } catch (error) {
-        console.log('   ⚠️  Не удалось проверить транзакции\n');
+        console.log('   ⚠️  Failed to check transactions\n');
     }
 
-    // 7. Инструкции
+    // 7. Instructions
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('💡 КАК ПОЛУЧИТЬ ДОСТУП К ПОЗИЦИЯМ НА ФРОНТЕНДЕ:\n');
+    console.log('💡 HOW TO ACCESS POSITIONS ON THE FRONTEND:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('🔧 ВАРИАНТ 1: Импортировать приватный ключ в MetaMask\n');
-    console.log('   1. Откройте MetaMask');
-    console.log('   2. Нажмите на иконку аккаунта -> Import Account');
-    console.log('   3. Вставьте ваш PRIVATE_KEY из .env файла');
-    console.log('   4. Подключитесь к Polymarket с этим аккаунтом');
-    console.log('   5. Polymarket автоматически покажет правильный proxy wallet\n');
+    console.log('🔧 OPTION 1: Import private key into MetaMask\n');
+    console.log('   1. Open MetaMask');
+    console.log('   2. Click on account icon -> Import Account');
+    console.log('   3. Paste your PRIVATE_KEY from .env file');
+    console.log('   4. Connect to Polymarket with this account');
+    console.log('   5. Polymarket will automatically show the correct proxy wallet\n');
 
-    console.log('⚠️  ВНИМАНИЕ: Никогда не делитесь приватным ключом!\n');
+    console.log('⚠️  WARNING: Never share your private key!\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('🔧 ВАРИАНТ 2: Найти proxy wallet через URL\n');
-    console.log(`   Ваши позиции доступны по адресу:\n`);
+    console.log('🔧 OPTION 2: Find proxy wallet via URL\n');
+    console.log(`   Your positions are available at:\n`);
     console.log(`   https://polymarket.com/profile/${PROXY_WALLET}\n`);
-    console.log(`   Откройте эту ссылку в браузере для просмотра.\n`);
+    console.log(`   Open this link in your browser to view.\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('🔧 ВАРИАНТ 3: Проверить через Polygon Explorer\n');
+    console.log('🔧 OPTION 3: Check via Polygon Explorer\n');
     console.log(`   https://polygonscan.com/address/${PROXY_WALLET}\n`);
-    console.log(`   Здесь можно увидеть все транзакции и токены.\n`);
+    console.log(`   Here you can see all transactions and tokens.\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 8. Дополнительная информация
-    console.log('📚 ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ:\n');
-    console.log('   • EOA (Externally Owned Account) - ваш основной кошелек');
-    console.log('   • Proxy Wallet - смарт-контракт для торговли на Polymarket');
-    console.log('   • Один EOA может иметь только один proxy wallet на Polymarket');
-    console.log('   • Все позиции хранятся в proxy wallet, не в EOA\n');
+    // 8. Additional information
+    console.log('📚 ADDITIONAL INFORMATION:\n');
+    console.log('   • EOA (Externally Owned Account) - your main wallet');
+    console.log('   • Proxy Wallet - smart contract for trading on Polymarket');
+    console.log('   • One EOA can have only one proxy wallet on Polymarket');
+    console.log('   • All positions are stored in the proxy wallet, not in the EOA\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 9. Экспорт информации для подключения
-    console.log('📋 ДАННЫЕ ДЛЯ ПОДКЛЮЧЕНИЯ:\n');
-    console.log(`   EOA адрес:       ${eoaAddress}`);
-    console.log(`   Proxy адрес:     ${PROXY_WALLET}`);
+    // 9. Export connection information
+    console.log('📋 CONNECTION DATA:\n');
+    console.log(`   EOA address:     ${eoaAddress}`);
+    console.log(`   Proxy address:   ${PROXY_WALLET}`);
     console.log(
-        `   Тип Proxy:       ${isContract ? 'Smart Contract (Gnosis Safe)' : 'EOA (простой адрес)'}\n`
+        `   Proxy type:      ${isContract ? 'Smart Contract (Gnosis Safe)' : 'EOA (simple address)'}\n`
     );
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

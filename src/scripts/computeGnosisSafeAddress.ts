@@ -5,27 +5,27 @@ import fetchData from '../utils/fetchData';
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
 const RPC_URL = ENV.RPC_URL;
 
-// Gnosis Safe Proxy Factory на Polygon
+// Gnosis Safe Proxy Factory on Polygon
 const GNOSIS_SAFE_PROXY_FACTORY = '0xaacfeea03eb1561c4e67d661e40682bd20e3541b';
 const POLYMARKET_PROXY_FACTORY = '0xab45c5a4b0c941a2f231c04c3f49182e1a254052';
 
 async function computeGnosisSafeAddress() {
-    console.log('\n🔍 ВЫЧИСЛЕНИЕ GNOSIS SAFE PROXY АДРЕСА\n');
+    console.log('\n🔍 COMPUTING GNOSIS SAFE PROXY ADDRESS\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const wallet = new ethers.Wallet(PRIVATE_KEY);
     const eoaAddress = wallet.address;
 
-    console.log('📋 EOA адрес (из приватного ключа):\n');
+    console.log('📋 EOA address (from private key):\n');
     console.log(`   ${eoaAddress}\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 Поиск Gnosis Safe Proxy через события\n');
+    console.log('📋 Searching for Gnosis Safe Proxy via events\n');
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // ABI для ProxyCreation события
+        // ABI for ProxyCreation event
         const proxyFactoryAbi = ['event ProxyCreation(address indexed proxy, address singleton)'];
 
         const gnosisSafeFactory = new ethers.Contract(
@@ -40,15 +40,15 @@ async function computeGnosisSafeAddress() {
             provider
         );
 
-        console.log('   Ищу ProxyCreation события...\n');
+        console.log('   Searching for ProxyCreation events...\n');
 
         const latestBlock = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, latestBlock - 10000000); // Последние 10M блоков
+        const fromBlock = Math.max(0, latestBlock - 10000000); // Last 10M blocks
 
-        console.log(`   Блоки: ${fromBlock} - ${latestBlock}\n`);
-        console.log('   ⏳ Поиск может занять время...\n');
+        console.log(`   Blocks: ${fromBlock} - ${latestBlock}\n`);
+        console.log('   ⏳ Search may take some time...\n');
 
-        // Ищем ProxyCreation события для обеих фабрик
+        // Search for ProxyCreation events for both factories
         const factories = [
             {
                 name: 'Gnosis Safe Factory',
@@ -63,21 +63,21 @@ async function computeGnosisSafeAddress() {
         ];
 
         for (const factory of factories) {
-            console.log(`   Проверяю ${factory.name}...\n`);
+            console.log(`   Checking ${factory.name}...\n`);
 
             try {
                 const filter = factory.contract.filters.ProxyCreation();
                 const events = await factory.contract.queryFilter(filter, fromBlock, latestBlock);
 
-                console.log(`   Найдено событий: ${events.length}\n`);
+                console.log(`   Found events: ${events.length}\n`);
 
-                // Проверяем каждый созданный proxy
+                // Check each created proxy
                 for (const event of events) {
                     if (event.args && event.args.proxy) {
                         const proxyAddress = event.args.proxy;
 
-                        // Проверяем владеет ли наш EOA этим proxy
-                        // Для Gnosis Safe смотрим на владельцев
+                        // Check if our EOA owns this proxy
+                        // For Gnosis Safe, check the owners
                         try {
                             const gnosisSafeAbi = ['function getOwners() view returns (address[])'];
 
@@ -95,25 +95,25 @@ async function computeGnosisSafeAddress() {
                                 );
 
                                 if (isOwner) {
-                                    console.log(`   🎯 НАЙДЕН GNOSIS SAFE!\n`);
-                                    console.log(`   Proxy адрес: ${proxyAddress}\n`);
+                                    console.log(`   🎯 GNOSIS SAFE FOUND!\n`);
+                                    console.log(`   Proxy address: ${proxyAddress}\n`);
 
-                                    // Проверяем позиции
+                                    // Check positions
                                     const positions: any[] = await fetchData(
                                         `https://data-api.polymarket.com/positions?user=${proxyAddress}`
                                     );
 
-                                    console.log(`   Позиций на Proxy: ${positions?.length || 0}\n`);
+                                    console.log(`   Positions on Proxy: ${positions?.length || 0}\n`);
 
                                     if (positions && positions.length > 0) {
                                         console.log(
                                             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
                                         );
-                                        console.log('✅ РЕШЕНИЕ НАЙДЕНО!\n');
+                                        console.log('✅ SOLUTION FOUND!\n');
                                         console.log(
                                             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
                                         );
-                                        console.log(`Обновите .env файл:\n`);
+                                        console.log(`Update your .env file:\n`);
                                         console.log(`PROXY_WALLET=${proxyAddress}\n`);
                                         console.log(
                                             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
@@ -123,38 +123,38 @@ async function computeGnosisSafeAddress() {
                                 }
                             }
                         } catch (e) {
-                            // Не Gnosis Safe или ошибка, пропускаем
+                            // Not a Gnosis Safe or error, skip
                         }
                     }
                 }
             } catch (e) {
-                console.log(`   ⚠️  Ошибка при проверке ${factory.name}\n`);
+                console.log(`   ⚠️  Error checking ${factory.name}\n`);
             }
         }
 
-        console.log('   ❌ Gnosis Safe Proxy не найден через события\n');
+        console.log('   ❌ Gnosis Safe Proxy not found via events\n');
     } catch (error) {
-        console.log('   ⚠️  Ошибка при поиске через blockchain\n');
+        console.log('   ⚠️  Error searching via blockchain\n');
     }
 
-    // Альтернативный метод - проверяем конкретный адрес
+    // Alternative method - check specific address
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 Проверка известного адреса 0xd62531...\n');
+    console.log('📋 Checking known address 0xd62531...\n');
 
     const suspectAddress = '0xd62531bc536bff72394fc5ef715525575787e809';
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // Проверяем является ли это смарт-контрактом
+        // Check if this is a smart contract
         const code = await provider.getCode(suspectAddress);
         const isContract = code !== '0x';
 
-        console.log(`   Адрес: ${suspectAddress}`);
-        console.log(`   Тип: ${isContract ? 'Smart Contract' : 'EOA'}\n`);
+        console.log(`   Address: ${suspectAddress}`);
+        console.log(`   Type: ${isContract ? 'Smart Contract' : 'EOA'}\n`);
 
         if (isContract) {
-            // Проверяем владельцев Gnosis Safe
+            // Check Gnosis Safe owners
             try {
                 const gnosisSafeAbi = [
                     'function getOwners() view returns (address[])',
@@ -165,70 +165,70 @@ async function computeGnosisSafeAddress() {
                 const owners = await safeContract.getOwners();
                 const threshold = await safeContract.getThreshold();
 
-                console.log(`   Это Gnosis Safe!`);
-                console.log(`   Владельцев: ${owners.length}`);
+                console.log(`   This is a Gnosis Safe!`);
+                console.log(`   Owners: ${owners.length}`);
                 console.log(`   Threshold: ${threshold}\n`);
 
                 for (let i = 0; i < owners.length; i++) {
                     console.log(`   Owner ${i + 1}: ${owners[i]}`);
                     if (owners[i].toLowerCase() === eoaAddress.toLowerCase()) {
-                        console.log(`   ✅ ЭТО ВАШ GNOSIS SAFE!\n`);
+                        console.log(`   ✅ THIS IS YOUR GNOSIS SAFE!\n`);
                     }
                 }
 
-                // Проверяем позиции
+                // Check positions
                 const positions: any[] = await fetchData(
                     `https://data-api.polymarket.com/positions?user=${suspectAddress}`
                 );
 
-                console.log(`\n   Позиций на этом адресе: ${positions?.length || 0}\n`);
+                console.log(`\n   Positions on this address: ${positions?.length || 0}\n`);
 
                 if (positions && positions.length > 0) {
-                    console.log('   🎯 ПОЗИЦИИ НАЙДЕНЫ НА ЭТОМ АДРЕСЕ!\n');
+                    console.log('   🎯 POSITIONS FOUND ON THIS ADDRESS!\n');
                 }
             } catch (e) {
-                console.log('   ⚠️  Не Gnosis Safe или ошибка доступа\n');
+                console.log('   ⚠️  Not a Gnosis Safe or access error\n');
             }
         }
     } catch (error) {
-        console.log('   ⚠️  Ошибка при проверке ��дреса\n');
+        console.log('   ⚠️  Error checking address\n');
     }
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('💡 ИТОГ:\n');
+    console.log('💡 SUMMARY:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('У вас есть 2 адреса:\n');
+    console.log('You have 2 addresses:\n');
     console.log(`1. EOA:   ${eoaAddress}`);
-    console.log(`   - Позиций: 20`);
-    console.log(`   - Бот торгует ЗДЕСЬ\n`);
+    console.log(`   - Positions: 20`);
+    console.log(`   - Bot trades HERE\n`);
 
     console.log(`2. Proxy: ${suspectAddress}`);
-    console.log(`   - Позиций: 0`);
-    console.log(`   - Фронтенд показывает ЭТОТ адрес\n`);
+    console.log(`   - Positions: 0`);
+    console.log(`   - Frontend shows THIS address\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('🔧 ПОЧЕМУ ТАК ПРОИСХОДИТ:\n');
+    console.log('🔧 WHY THIS HAPPENS:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('Polymarket создает Gnosis Safe proxy при первом входе.\n');
-    console.log('Но ваш бот настроен использовать EOA напрямую.\n');
-    console.log('Поэтому:\n');
-    console.log('- Бот торгует через EOA (0x4fbBe...)\n');
-    console.log('- Фронтенд показывает Gnosis Safe (0xd6253...)\n');
-    console.log('- Это РАЗНЫЕ кошельки!\n');
+    console.log('Polymarket creates a Gnosis Safe proxy on first login.\n');
+    console.log('But your bot is configured to use EOA directly.\n');
+    console.log('Therefore:\n');
+    console.log('- Bot trades via EOA (0x4fbBe...)\n');
+    console.log('- Frontend shows Gnosis Safe (0xd6253...)\n');
+    console.log('- These are DIFFERENT wallets!\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('✅ РЕШЕНИЕ:\n');
+    console.log('✅ SOLUTION:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('ВАРИАНТ 1: Использовать EOA адрес на фронтенде\n');
-    console.log(`  Откройте: https://polymarket.com/profile/${eoaAddress}\n`);
-    console.log('  Здесь увидите все 20 позиций бота.\n');
+    console.log('OPTION 1: Use EOA address on frontend\n');
+    console.log(`  Open: https://polymarket.com/profile/${eoaAddress}\n`);
+    console.log('  Here you will see all 20 bot positions.\n');
 
-    console.log('ВАРИАНТ 2: Настроить бота на Gnosis Safe\n');
-    console.log('  Обновите код бота чтобы использовать SignatureType.POLY_GNOSIS_SAFE\n');
-    console.log(`  и PROXY_WALLET=${suspectAddress}\n`);
+    console.log('OPTION 2: Configure bot for Gnosis Safe\n');
+    console.log('  Update bot code to use SignatureType.POLY_GNOSIS_SAFE\n');
+    console.log(`  and PROXY_WALLET=${suspectAddress}\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }

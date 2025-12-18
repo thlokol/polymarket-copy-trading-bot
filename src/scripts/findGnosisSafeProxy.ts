@@ -5,40 +5,40 @@ import fetchData from '../utils/fetchData';
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
 const RPC_URL = ENV.RPC_URL;
 
-// Gnosis Safe Proxy Factory адрес на Polygon
+// Gnosis Safe Proxy Factory address on Polygon
 const GNOSIS_SAFE_PROXY_FACTORY = '0xaacfeea03eb1561c4e67d661e40682bd20e3541b';
 
 async function findGnosisSafeProxy() {
-    console.log('\n🔍 ПОИСК GNOSIS SAFE PROXY WALLET\n');
+    console.log('\n🔍 SEARCHING FOR GNOSIS SAFE PROXY WALLET\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // 1. Получаем EOA адрес из приватного ключа
+    // 1. Get EOA address from private key
     const wallet = new ethers.Wallet(PRIVATE_KEY);
     const eoaAddress = wallet.address;
 
-    console.log('📋 ШАГ 1: Ваш EOA адрес (из приватного ключа)\n');
+    console.log('📋 STEP 1: Your EOA address (from private key)\n');
     console.log(`   ${eoaAddress}\n`);
 
-    // 2. Ищем все позиции на EOA
+    // 2. Find all positions on EOA
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 2: Позиции на EOA адресе\n');
+    console.log('📋 STEP 2: Positions on EOA address\n');
 
     try {
         const eoaPositions: any[] = await fetchData(
             `https://data-api.polymarket.com/positions?user=${eoaAddress}`
         );
-        console.log(`   Позиций: ${eoaPositions?.length || 0}\n`);
+        console.log(`   Positions: ${eoaPositions?.length || 0}\n`);
 
         if (eoaPositions && eoaPositions.length > 0) {
-            console.log('   ✅ Есть позиции на EOA!\n');
+            console.log('   ✅ There are positions on EOA!\n');
         }
     } catch (error) {
-        console.log('   ❌ Не удалось получить позиции\n');
+        console.log('   ❌ Failed to get positions\n');
     }
 
-    // 3. Ищем транзакции EOA чтобы найти proxy
+    // 3. Search EOA transactions to find proxy
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 3: Ищем Gnosis Safe Proxy через транзакции\n');
+    console.log('📋 STEP 3: Searching for Gnosis Safe Proxy through transactions\n');
 
     try {
         const activities: any[] = await fetchData(
@@ -49,114 +49,114 @@ async function findGnosisSafeProxy() {
             const firstTrade = activities[0];
             const proxyWalletFromTrade = firstTrade.proxyWallet;
 
-            console.log(`   EOA адрес:          ${eoaAddress}`);
-            console.log(`   Proxy в сделках:    ${proxyWalletFromTrade}\n`);
+            console.log(`   EOA address:          ${eoaAddress}`);
+            console.log(`   Proxy in trades:    ${proxyWalletFromTrade}\n`);
 
             if (proxyWalletFromTrade.toLowerCase() !== eoaAddress.toLowerCase()) {
-                console.log('   🎯 НАЙДЕН GNOSIS SAFE PROXY!\n');
-                console.log(`   Proxy адрес: ${proxyWalletFromTrade}\n`);
+                console.log('   🎯 GNOSIS SAFE PROXY FOUND!\n');
+                console.log(`   Proxy address: ${proxyWalletFromTrade}\n`);
 
-                // Проверяем позиции на proxy
+                // Check positions on proxy
                 const proxyPositions: any[] = await fetchData(
                     `https://data-api.polymarket.com/positions?user=${proxyWalletFromTrade}`
                 );
 
-                console.log(`   Позиций на Proxy: ${proxyPositions?.length || 0}\n`);
+                console.log(`   Positions on Proxy: ${proxyPositions?.length || 0}\n`);
 
                 if (proxyPositions && proxyPositions.length > 0) {
-                    console.log('   ✅ ВОТ ГДЕ ВАШИ ПОЗИЦИИ!\n');
+                    console.log('   ✅ HERE ARE YOUR POSITIONS!\n');
 
                     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-                    console.log('🔧 РЕШЕНИЕ:\n');
+                    console.log('🔧 SOLUTION:\n');
                     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-                    console.log('Обновите .env файл:\n');
+                    console.log('Update .env file:\n');
                     console.log(`PROXY_WALLET=${proxyWalletFromTrade}\n`);
 
-                    console.log('Тогда бот будет использовать правильный Gnosis Safe proxy\n');
-                    console.log('и позиции будут совпадать с фронтендом!\n');
+                    console.log('Then the bot will use the correct Gnosis Safe proxy\n');
+                    console.log('and positions will match the frontend!\n');
 
                     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-                    console.log('📊 ТЕКУЩЕЕ СОСТОЯНИЕ:\n');
-                    console.log(`   Бот использует:    ${ENV.PROXY_WALLET}`);
-                    console.log(`   Должен использовать: ${proxyWalletFromTrade}\n`);
+                    console.log('📊 CURRENT STATUS:\n');
+                    console.log(`   Bot uses:    ${ENV.PROXY_WALLET}`);
+                    console.log(`   Should use: ${proxyWalletFromTrade}\n`);
 
                     if (ENV.PROXY_WALLET.toLowerCase() === proxyWalletFromTrade.toLowerCase()) {
-                        console.log('   ✅ Адреса совпадают! Всё правильно настроено.\n');
+                        console.log('   ✅ Addresses match! Everything is configured correctly.\n');
                     } else {
-                        console.log('   ❌ АДРЕСА НЕ СОВПАДАЮТ!\n');
-                        console.log('   Поэтому вы видите разные позиции на боте и фронтенде.\n');
+                        console.log('   ❌ ADDRESSES DO NOT MATCH!\n');
+                        console.log('   That\'s why you see different positions on bot and frontend.\n');
                     }
                 }
             } else {
-                console.log('   ℹ️  Proxy совпадает с EOA (торгуете напрямую через EOA)\n');
+                console.log('   ℹ️  Proxy matches EOA (trading directly through EOA)\n');
             }
         } else {
-            console.log('   ❌ Нет транзакций на этом адресе\n');
+            console.log('   ❌ No transactions on this address\n');
         }
     } catch (error) {
-        console.log('   ❌ Ошибка при поиске транзакций\n');
+        console.log('   ❌ Error searching for transactions\n');
     }
 
-    // 4. Дополнительный поиск через Polygon blockchain
+    // 4. Additional search through Polygon blockchain
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 4: Поиск через Polygon blockchain\n');
+    console.log('📋 STEP 4: Search through Polygon blockchain\n');
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // Ищем события ProxyCreation от Gnosis Safe Factory
-        console.log('   Проверяем создание Gnosis Safe...\n');
+        // Search for ProxyCreation events from Gnosis Safe Factory
+        console.log('   Checking Gnosis Safe creation...\n');
 
-        // ABI события ProxyCreation
+        // ProxyCreation event ABI
         const eventAbi = ['event ProxyCreation(address indexed proxy, address singleton)'];
         const iface = new ethers.utils.Interface(eventAbi);
         const eventTopic = iface.getEventTopic('ProxyCreation');
 
-        // Ищем события где owner это наш EOA
-        // Обычно Gnosis Safe создается при первой транзакции
+        // Search for events where owner is our EOA
+        // Usually Gnosis Safe is created on first transaction
         const latestBlock = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, latestBlock - 10000000); // Последние ~10M блоков
+        const fromBlock = Math.max(0, latestBlock - 10000000); // Last ~10M blocks
 
-        console.log(`   Сканирую блоки с ${fromBlock} по ${latestBlock}...\n`);
-        console.log('   ⏳ Это может занять некоторое время...\n');
+        console.log(`   Scanning blocks from ${fromBlock} to ${latestBlock}...\n`);
+        console.log('   ⏳ This may take some time...\n');
 
-        // Проверяем транзакции EOA
+        // Check EOA transactions
         const txCount = await provider.getTransactionCount(eoaAddress);
-        console.log(`   Транзакций с EOA: ${txCount}\n`);
+        console.log(`   Transactions from EOA: ${txCount}\n`);
 
         if (txCount > 0) {
-            console.log('   ℹ️  EOA делал транзакции. Возможно есть Gnosis Safe.\n');
+            console.log('   ℹ️  EOA made transactions. Possibly has Gnosis Safe.\n');
         }
     } catch (error) {
-        console.log('   ⚠️  Не удалось проверить blockchain напрямую\n');
+        console.log('   ⚠️  Failed to check blockchain directly\n');
     }
 
-    // 5. Итоговые рекомендации
+    // 5. Final recommendations
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('💡 РЕКОМЕНДАЦИИ:\n');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-    console.log('1. Зайдите на polymarket.com через браузер\n');
-    console.log('2. Подключите кошелек с тем же приватным ключом\n');
-    console.log('3. Скопируйте адрес который показывает Polymarket\n');
-    console.log('4. Обновите PROXY_WALLET в .env этим адресом\n');
-    console.log('5. Перезапустите бота\n');
-
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📍 КАК НАЙТИ PROXY АДРЕС НА ФРОНТЕНДЕ:\n');
+    console.log('💡 RECOMMENDATIONS:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('На Polymarket после подключения:\n');
-    console.log('1. Кликните на иконку профиля (правый верхний угол)\n');
-    console.log('2. Там будет адрес вида 0x...\n');
-    console.log('3. Это и есть ваш Proxy Wallet адрес!\n');
-    console.log('4. Скопируйте его в PROXY_WALLET в .env\n');
+    console.log('1. Go to polymarket.com through browser\n');
+    console.log('2. Connect wallet with the same private key\n');
+    console.log('3. Copy the address that Polymarket shows\n');
+    console.log('4. Update PROXY_WALLET in .env with this address\n');
+    console.log('5. Restart the bot\n');
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log('📍 HOW TO FIND PROXY ADDRESS ON FRONTEND:\n');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    console.log('On Polymarket after connecting:\n');
+    console.log('1. Click on profile icon (top right corner)\n');
+    console.log('2. There will be an address like 0x...\n');
+    console.log('3. This is your Proxy Wallet address!\n');
+    console.log('4. Copy it to PROXY_WALLET in .env\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('🔗 Полезные ссылки:\n');
-    console.log(`   EOA профиль:     https://polymarket.com/profile/${eoaAddress}`);
+    console.log('🔗 Useful links:\n');
+    console.log(`   EOA profile:     https://polymarket.com/profile/${eoaAddress}`);
     console.log(`   EOA Polygonscan: https://polygonscan.com/address/${eoaAddress}\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

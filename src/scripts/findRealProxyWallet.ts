@@ -6,39 +6,39 @@ const PRIVATE_KEY = ENV.PRIVATE_KEY;
 const RPC_URL = ENV.RPC_URL;
 
 async function findRealProxyWallet() {
-    console.log('\n🔍 ПОИСК НАСТОЯЩЕГО PROXY WALLET\n');
+    console.log('\n🔍 SEARCHING FOR REAL PROXY WALLET\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     const wallet = new ethers.Wallet(PRIVATE_KEY);
     const eoaAddress = wallet.address;
 
-    console.log('📋 EOA адрес (из приватного ключа):\n');
+    console.log('📋 EOA address (from private key):\n');
     console.log(`   ${eoaAddress}\n`);
 
-    // 1. Проверяем username API
+    // 1. Check username API
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 1: Проверка username через API\n');
+    console.log('📋 STEP 1: Checking username via API\n');
 
     try {
-        // Пробуем получить профиль пользователя
+        // Try to get user profile
         const userProfile = await fetchData(`https://data-api.polymarket.com/users/${eoaAddress}`);
 
-        console.log('   Данные профиля:', JSON.stringify(userProfile, null, 2), '\n');
+        console.log('   Profile data:', JSON.stringify(userProfile, null, 2), '\n');
     } catch (error) {
-        console.log('   ⚠️  Не удалось получить профиль через /users\n');
+        console.log('   ⚠️  Failed to get profile via /users\n');
     }
 
-    // 2. Проверяем все транзакции на blockchain
+    // 2. Check all transactions on blockchain
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 2: Анализ транзакций на Polygon\n');
+    console.log('📋 STEP 2: Analyzing transactions on Polygon\n');
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // Получаем последние транзакции
-        console.log('   Получаю историю транзакций...\n');
+        // Get latest transactions
+        console.log('   Getting transaction history...\n');
 
-        // Используем Polygonscan API
+        // Use Polygonscan API
         const polygonscanApiKey = 'YourApiKeyToken'; // Free tier
         const polygonscanUrl = `https://api.polygonscan.com/api?module=account&action=txlist&address=${eoaAddress}&startblock=0&endblock=99999999&page=1&offset=100&sort=desc&apikey=${polygonscanApiKey}`;
 
@@ -47,9 +47,9 @@ async function findRealProxyWallet() {
             const data = await response.json();
 
             if (data.status === '1' && data.result && data.result.length > 0) {
-                console.log(`   ✅ Найдено транзакций: ${data.result.length}\n`);
+                console.log(`   ✅ Found transactions: ${data.result.length}\n`);
 
-                // Ищем взаимодействия с Gnosis Safe Factory или Proxy
+                // Search for interactions with Gnosis Safe Factory or Proxy
                 const gnosisSafeFactories = [
                     '0xaacfeea03eb1561c4e67d661e40682bd20e3541b', // Gnosis Safe Proxy Factory
                     '0xab45c5a4b0c941a2f231c04c3f49182e1a254052', // Polymarket Proxy Factory
@@ -62,47 +62,47 @@ async function findRealProxyWallet() {
                 );
 
                 if (relevantTxs.length > 0) {
-                    console.log('   🎯 Найдены транзакции с Proxy Factory:\n');
+                    console.log('   🎯 Found transactions with Proxy Factory:\n');
 
                     for (const tx of relevantTxs.slice(0, 3)) {
                         console.log(`      TX: ${tx.hash}`);
                         console.log(`      To: ${tx.to}`);
                         console.log(`      Block: ${tx.blockNumber}\n`);
 
-                        // Получаем receipt чтобы найти созданный контракт
+                        // Get receipt to find created contract
                         try {
                             const receipt = await provider.getTransactionReceipt(tx.hash);
 
                             if (receipt && receipt.logs && receipt.logs.length > 0) {
-                                console.log(`      📝 Logs в транзакции:\n`);
+                                console.log(`      📝 Logs in transaction:\n`);
 
-                                // Ищем события создания proxy
+                                // Search for proxy creation events
                                 for (const log of receipt.logs) {
                                     console.log(`         Contract: ${log.address}`);
 
-                                    // Проверяем является ли это адресом контракта
+                                    // Check if this is a contract address
                                     const code = await provider.getCode(log.address);
                                     if (code !== '0x') {
-                                        console.log(`         ✅ Это смарт-контракт!\n`);
+                                        console.log(`         ✅ This is a smart contract!\n`);
 
-                                        // Проверяем есть ли позиции на этом адресе
+                                        // Check if there are positions on this address
                                         const positions: any[] = await fetchData(
                                             `https://data-api.polymarket.com/positions?user=${log.address}`
                                         );
 
                                         if (positions && positions.length > 0) {
-                                            console.log(`         🎉 НАЙДЕН PROXY С ПОЗИЦИЯМИ!\n`);
-                                            console.log(`         Proxy адрес: ${log.address}`);
-                                            console.log(`         Позиций: ${positions.length}\n`);
+                                            console.log(`         🎉 FOUND PROXY WITH POSITIONS!\n`);
+                                            console.log(`         Proxy address: ${log.address}`);
+                                            console.log(`         Positions: ${positions.length}\n`);
 
                                             console.log(
                                                 '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
                                             );
-                                            console.log('✅ РЕШЕНИЕ НАЙДЕНО!\n');
+                                            console.log('✅ SOLUTION FOUND!\n');
                                             console.log(
                                                 '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
                                             );
-                                            console.log(`Обновите .env файл:\n`);
+                                            console.log(`Update .env file:\n`);
                                             console.log(`PROXY_WALLET=${log.address}\n`);
                                             return;
                                         }
@@ -110,28 +110,28 @@ async function findRealProxyWallet() {
                                 }
                             }
                         } catch (e) {
-                            console.log(`      ⚠️  Не удалось получить receipt\n`);
+                            console.log(`      ⚠️  Failed to get receipt\n`);
                         }
                     }
                 } else {
-                    console.log('   ❌ Нет транзакций с Proxy Factory\n');
+                    console.log('   ❌ No transactions with Proxy Factory\n');
                 }
             }
         } catch (e) {
-            console.log('   ⚠️  Polygonscan API недоступен (нужен API key)\n');
+            console.log('   ⚠️  Polygonscan API unavailable (API key needed)\n');
         }
     } catch (error) {
-        console.log('   ⚠️  Ошибка при анализе транзакций\n');
+        console.log('   ⚠️  Error analyzing transactions\n');
     }
 
-    // 3. Проверяем через баланс токенов
+    // 3. Check via token balance
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 ШАГ 3: Поиск через balance API\n');
+    console.log('📋 STEP 3: Search via balance API\n');
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
 
-        // USDC контракт на Polygon
+        // USDC contract on Polygon
         const USDC_ADDRESS = '0x2791bca1f2de4661ed88a30c99a7a9449aa84174';
         const usdcAbi = [
             'function balanceOf(address owner) view returns (uint256)',
@@ -140,23 +140,23 @@ async function findRealProxyWallet() {
 
         const usdcContract = new ethers.Contract(USDC_ADDRESS, usdcAbi, provider);
 
-        // Проверяем баланс на EOA
+        // Check balance on EOA
         const balance = await usdcContract.balanceOf(eoaAddress);
-        console.log(`   USDC на EOA: ${ethers.utils.formatUnits(balance, 6)}\n`);
+        console.log(`   USDC on EOA: ${ethers.utils.formatUnits(balance, 6)}\n`);
 
-        // Ищем Transfer события связанные с нашим EOA
-        console.log('   Ищу USDC transfers...\n');
+        // Search for Transfer events related to our EOA
+        console.log('   Searching USDC transfers...\n');
 
         const latestBlock = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, latestBlock - 1000000); // Последние ~1M блоков
+        const fromBlock = Math.max(0, latestBlock - 1000000); // Last ~1M blocks
 
         const transferFilter = usdcContract.filters.Transfer(eoaAddress, null);
         const events = await usdcContract.queryFilter(transferFilter, fromBlock, latestBlock);
 
         if (events.length > 0) {
-            console.log(`   ✅ Найдено USDC transfers: ${events.length}\n`);
+            console.log(`   ✅ Found USDC transfers: ${events.length}\n`);
 
-            // Собираем уникальные адреса получателей
+            // Collect unique recipient addresses
             const recipients = new Set<string>();
             for (const event of events) {
                 if (event.args && event.args.to) {
@@ -164,7 +164,7 @@ async function findRealProxyWallet() {
                 }
             }
 
-            console.log('   Проверяю получателей на н��личие позиций...\n');
+            console.log('   Checking recipients for positions...\n');
 
             for (const recipient of Array.from(recipients).slice(0, 5)) {
                 const positions: any[] = await fetchData(
@@ -172,40 +172,40 @@ async function findRealProxyWallet() {
                 );
 
                 if (positions && positions.length > 0) {
-                    console.log(`   🎯 Адрес с позициями: ${recipient}`);
-                    console.log(`   Позиций: ${positions.length}\n`);
+                    console.log(`   🎯 Address with positions: ${recipient}`);
+                    console.log(`   Positions: ${positions.length}\n`);
                 }
             }
         }
     } catch (error) {
-        console.log('   ⚠️  Не удалось проверить USDC transfers\n');
+        console.log('   ⚠️  Failed to check USDC transfers\n');
     }
 
-    // 4. Финальные инструкции
+    // 4. Final instructions
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('💡 РУЧНОЙ СПОСОБ (100% работает):\n');
+    console.log('💡 MANUAL METHOD (100% works):\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('1. Откройте polymarket.com\n');
-    console.log('2. Импортируйте приватный ключ в MetaMask (НЕ отправляйте его никому):\n');
-    console.log('   (скрипт намеренно не выводит PRIVATE_KEY)\n');
-    console.log('3. Подключитесь к Polymarket\n');
-    console.log('4. Откройте консоль браузера (F12)\n');
-    console.log('5. Выполните:\n');
+    console.log('1. Open polymarket.com\n');
+    console.log('2. Import private key into MetaMask (DO NOT send it to anyone):\n');
+    console.log('   (script intentionally does not output PRIVATE_KEY)\n');
+    console.log('3. Connect to Polymarket\n');
+    console.log('4. Open browser console (F12)\n');
+    console.log('5. Execute:\n');
     console.log('   localStorage\n');
-    console.log('   или\n');
+    console.log('   or\n');
     console.log('   window.ethereum.selectedAddress\n');
-    console.log('6. Скопируйте адрес который там увидите\n');
-    console.log('7. Вставьте этот адрес в ваш .env как PROXY_WALLET\n');
+    console.log('6. Copy the address you see there\n');
+    console.log('7. Paste this address into your .env as PROXY_WALLET\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    console.log('🔍 ИЛИ проверьте в браузере:\n');
-    console.log('   1. Зайдите на polymarket.com\n');
-    console.log('   2. Подключите кошелек\n');
-    console.log('   3. Кликните на иконку профиля\n');
-    console.log('   4. Скопируйте адрес который там написан\n');
-    console.log('   5. Это и есть ваш настоящий Proxy адрес!\n');
+    console.log('🔍 OR check in browser:\n');
+    console.log('   1. Go to polymarket.com\n');
+    console.log('   2. Connect wallet\n');
+    console.log('   3. Click on profile icon\n');
+    console.log('   4. Copy the address written there\n');
+    console.log('   5. This is your real Proxy address!\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
