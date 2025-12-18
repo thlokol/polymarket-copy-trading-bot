@@ -1,12 +1,10 @@
 import { ethers } from 'ethers';
 import { ENV } from '../config/env';
 import fetchData from '../utils/fetchData';
+import * as readline from 'readline';
 
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
 const RPC_URL = ENV.RPC_URL;
-
-const EOA_ADDRESS = '0x4fbBe5599c06e846D2742014c9eB04A8a3d1DE8C';
-const GNOSIS_SAFE_ADDRESS = '0xd62531bc536bff72394fc5ef715525575787e809';
 
 // Polymarket Conditional Tokens contract на Polygon (ERC1155)
 const CONDITIONAL_TOKENS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045';
@@ -25,20 +23,63 @@ interface Position {
     outcome?: string;
 }
 
+const isValidEthereumAddress = (address: string): boolean => /^0x[a-fA-F0-9]{40}$/.test(address);
+
+const ask = (question: string): Promise<string> => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) =>
+        rl.question(question, (answer) => {
+            rl.close();
+            resolve(answer.trim());
+        })
+    );
+};
+
 async function transferPositions() {
     console.log('\n🔄 ПЕРЕНОС ПОЗИЦИЙ С EOA НА GNOSIS SAFE\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+    const gnosisSafeAddress =
+        (process.env.TRANSFER_TO_ADDRESS || process.env.GNOSIS_SAFE_ADDRESS || '').trim();
+
+    if (!gnosisSafeAddress) {
+        console.log('❌ Не указан адрес получателя (Gnosis Safe)');
+        console.log('   Укажите переменную окружения: TRANSFER_TO_ADDRESS=0x...');
+        console.log('   Пример: TRANSFER_TO_ADDRESS=0xYourSafe npm run transfer-to-gnosis\n');
+        process.exit(1);
+    }
+
+    if (!isValidEthereumAddress(gnosisSafeAddress)) {
+        console.log('❌ Некорректный адрес получателя:', gnosisSafeAddress);
+        process.exit(1);
+    }
+
     console.log('📍 Адреса:\n');
-    console.log(`   FROM (EOA):          ${EOA_ADDRESS}`);
-    console.log(`   TO (Gnosis Safe):    ${GNOSIS_SAFE_ADDRESS}\n`);
+    const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const eoaAddress = wallet.address;
+
+    console.log(`   FROM (EOA):          ${eoaAddress}`);
+    console.log(`   TO (Gnosis Safe):    ${gnosisSafeAddress}\n`);
+
+    if (process.env.CONFIRM_TRANSFER !== 'true') {
+        console.log('⚠️  ВНИМАНИЕ: этот скрипт может перемещать ваши позиции/средства.');
+        const confirmation = await ask(
+            `Введите адрес получателя для подтверждения (${gnosisSafeAddress}): `
+        );
+        if (confirmation.toLowerCase() !== gnosisSafeAddress.toLowerCase()) {
+            console.log('❌ Подтверждение не совпало. Отмена.');
+            process.exit(1);
+        }
+        console.log('✅ Подтверждено.\n');
+    }
 
     // 1. Получаем все позиции на EOA
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     console.log('📋 ШАГ 1: Получение позиций на EOA\n');
 
     const positions: Position[] = await fetchData(
-        `https://data-api.polymarket.com/positions?user=${EOA_ADDRESS}`
+        `https://data-api.polymarket.com/positions?user=${eoaAddress}`
     );
 
     if (!positions || positions.length === 0) {
@@ -55,19 +96,8 @@ async function transferPositions() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     console.log('📋 ШАГ 2: Подключение к Polygon\n');
 
-    const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-
     console.log(`✅ Подключено к Polygon\n`);
     console.log(`   Wallet: ${wallet.address}\n`);
-
-    // Проверяем что это правильный кошелек
-    if (wallet.address.toLowerCase() !== EOA_ADDRESS.toLowerCase()) {
-        console.log('❌ ОШИБКА: Приватный ключ не соответствует EOA адресу!\n');
-        console.log(`   Ожидается: ${EOA_ADDRESS}`);
-        console.log(`   Получен:   ${wallet.address}\n`);
-        return;
-    }
 
     // 3. ERC1155 ABI для safeTransferFrom
     const erc1155Abi = [
@@ -100,7 +130,7 @@ async function transferPositions() {
             const ctfContract = new ethers.Contract(CONDITIONAL_TOKENS, erc1155Abi, wallet);
 
             // Проверяем баланс на EOA
-            const balance = await ctfContract.balanceOf(EOA_ADDRESS, pos.asset);
+            const balance = await ctfContract.balanceOf(eoaAddress, pos.asset);
             console.log(`\n📊 Баланс на EOA: ${ethers.utils.formatUnits(balance, 0)} tokens`);
 
             if (balance.isZero()) {
@@ -117,24 +147,12 @@ async function transferPositions() {
                 `⛽ Gas price: ${ethers.utils.formatUnits(gasPriceWithBuffer, 'gwei')} Gwei\n`
             );
 
-            // Проверяем approval
-            const isApproved = await ctfContract.isApprovedForAll(EOA_ADDRESS, GNOSIS_SAFE_ADDRESS);
-            if (!isApproved) {
-                console.log('🔓 Установка approval для Gnosis Safe...');
-                const approveTx = await ctfContract.setApprovalForAll(GNOSIS_SAFE_ADDRESS, true, {
-                    gasPrice: gasPriceWithBuffer,
-                    gasLimit: 100000,
-                });
-                await approveTx.wait();
-                console.log('✅ Approval установлен\n');
-            }
-
             // Переносим токены
             console.log(`🔄 Перенос ${ethers.utils.formatUnits(balance, 0)} токенов...`);
 
             const transferTx = await ctfContract.safeTransferFrom(
-                EOA_ADDRESS,
-                GNOSIS_SAFE_ADDRESS,
+                eoaAddress,
+                gnosisSafeAddress,
                 pos.asset,
                 balance,
                 '0x', // empty data
@@ -182,11 +200,11 @@ async function transferPositions() {
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     const eoaPositionsAfter: Position[] = await fetchData(
-        `https://data-api.polymarket.com/positions?user=${EOA_ADDRESS}`
+        `https://data-api.polymarket.com/positions?user=${eoaAddress}`
     );
 
     const gnosisPositionsAfter: Position[] = await fetchData(
-        `https://data-api.polymarket.com/positions?user=${GNOSIS_SAFE_ADDRESS}`
+        `https://data-api.polymarket.com/positions?user=${gnosisSafeAddress}`
     );
 
     console.log('📊 ПОСЛЕ ПЕРЕНОСА:\n');
@@ -196,7 +214,7 @@ async function transferPositions() {
     if (gnosisPositionsAfter && gnosisPositionsAfter.length > 0) {
         console.log('✅ Позиции успешно перенесены на Gnosis Safe!\n');
         console.log('🔗 Проверьте на Polymarket:\n');
-        console.log(`   https://polymarket.com/profile/${GNOSIS_SAFE_ADDRESS}\n`);
+        console.log(`   https://polymarket.com/profile/${gnosisSafeAddress}\n`);
     } else {
         console.log('⚠️  API еще не обновилось. Подождите несколько минут и проверьте вручную.\n');
     }

@@ -187,8 +187,8 @@ async function findRealProxyWallet() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     console.log('1. Откройте polymarket.com\n');
-    console.log('2. Импортируйте приватный ключ в MetaMask:\n');
-    console.log(`   ${PRIVATE_KEY.slice(0, 10)}...${PRIVATE_KEY.slice(-6)}\n`);
+    console.log('2. Импортируйте приватный ключ в MetaMask (НЕ отправляйте его никому):\n');
+    console.log('   (скрипт намеренно не выводит PRIVATE_KEY)\n');
     console.log('3. Подключитесь к Polymarket\n');
     console.log('4. Откройте консоль браузера (F12)\n');
     console.log('5. Выполните:\n');
@@ -196,7 +196,7 @@ async function findRealProxyWallet() {
     console.log('   или\n');
     console.log('   window.ethereum.selectedAddress\n');
     console.log('6. Скопируйте адрес который там увидите\n');
-    console.log('7. Пришлите мне этот адрес\n');
+    console.log('7. Вставьте этот адрес в ваш .env как PROXY_WALLET\n');
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 

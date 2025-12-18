@@ -20,16 +20,17 @@ const createClobClient = async (): Promise<ClobClient> => {
         PROXY_WALLET as string
     );
 
+    // Suppress console output during API key creation to avoid leaking credentials
+    const originalConsoleLog = console.log;
     const originalConsoleError = console.error;
+    console.log = function () {};
     console.error = function () {};
     let creds = await clobClient.createApiKey();
-    console.error = originalConsoleError;
-    if (creds.key) {
-        console.log('API Key created', creds);
-    } else {
+    if (!creds.key) {
         creds = await clobClient.deriveApiKey();
-        console.log('API Key derived', creds);
     }
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
 
     clobClient = new ClobClient(
         host,
@@ -39,7 +40,6 @@ const createClobClient = async (): Promise<ClobClient> => {
         SignatureType.POLY_PROXY,
         PROXY_WALLET as string
     );
-    console.log(clobClient);
     return clobClient;
 };
 

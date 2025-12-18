@@ -34,7 +34,8 @@ services:
         container_name: polymarket-mongodb
         restart: unless-stopped
         ports:
-            - '27017:27017'
+            # Bind to localhost only to avoid exposing MongoDB on your LAN
+            - '127.0.0.1:27017:27017'
         volumes:
             - mongodb-data:/data/db
             - mongodb-config:/data/configdb
