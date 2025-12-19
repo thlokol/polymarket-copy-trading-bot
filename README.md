@@ -1,138 +1,115 @@
 # Polymarket Copy Trading Bot
 
-> Automated copy trading bot for Polymarket that mirrors trades from top performers with intelligent position sizing and real-time execution.
+A TypeScript bot that monitors selected Polymarket traders and mirrors their trades on Polygon with configurable sizing, safety limits, and operational tooling.
 
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+## Highlights
 
-## Overview
-
-The Polymarket Copy Trading Bot automatically replicates trades from successful Polymarket traders to your wallet. It monitors trader activity 24/7, calculates proportional position sizes based on your capital, and executes matching orders in real-time.
-
-### How It Works
-<img width="995" height="691" alt="screenshot" src="https://github.com/user-attachments/assets/79715c7a-de2c-4033-81e6-b2288963ec9b" />
-
-1. **Select Traders** - Choose top performers from [Polymarket leaderboard](https://polymarket.com/leaderboard) or [Predictfolio](https://predictfolio.com)
-2. **Monitor Activity** - Bot continuously watches for new positions opened by selected traders using Polymarket Data API
-3. **Calculate Size** - Automatically scales trades based on your balance vs. trader's balance
-4. **Execute Orders** - Places matching orders on Polymarket using your wallet
-5. **Track Performance** - Maintains complete trade history in MongoDB
+- Copy trades from one or many trader wallets
+- Multiple sizing strategies (percentage, fixed, adaptive)
+- Risk controls: per-order, per-position, and daily volume caps
+- Health checks, monitoring scripts, and simulation tools
+- MongoDB-backed trade history and daily log files
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js v18+
-- MongoDB database ([MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) free tier works)
-- Polygon wallet with USDC and POL/MATIC for gas
-- RPC endpoint ([Infura](https://infura.io) or [Alchemy](https://www.alchemy.com) free tier)
-
-### Installation
+1) Install dependencies
 
 ```bash
-# Clone repository
-git clone https://github.com/vladmeer/polymarket-copy-trading-bot.git
-cd polymarket-copy-trading-bot
-
-# Install dependencies
 npm install
-
-# Run interactive setup wizard
-npm run setup
-
-# Build and start
-npm run build
-npm run health-check  # Verify configuration
-npm start             # Start trading
 ```
 
-**📖 For detailed setup instructions, see [Getting Started Guide](./docs/GETTING_STARTED.md)**
+2) Create your `.env`
 
-## Features
+- Run the wizard:
 
-- **Multi-Trader Support** - Track and copy trades from multiple traders simultaneously
-- **Smart Position Sizing** - Automatically adjusts trade sizes based on your capital
-- **Tiered Multipliers** - Apply different multipliers based on trade size
-- **Position Tracking** - Accurately tracks purchases and sells even after balance changes
-- **Trade Aggregation** - Combines multiple small trades into larger executable orders
-- **Real-time Execution** - Monitors trades every second and executes instantly
-- **MongoDB Integration** - Persistent storage of all trades and positions
-- **Price Protection** - Built-in slippage checks to avoid unfavorable fills
+```bash
+npm run setup
+```
 
-### Monitoring Method
+- Or copy and edit the template:
 
-The bot currently uses the **Polymarket Data API** to monitor trader activity and detect new positions. The monitoring system polls trader positions at configurable intervals (default: 1 second) to ensure timely trade detection and execution.
+```bash
+cp .env.example .env
+```
+
+3) Verify your setup
+
+```bash
+npm run health-check
+```
+
+4) Start the bot
+
+```bash
+npm run build
+npm start
+```
+
+For a guided walkthrough, see `GETTING_STARTED.md`.
+
+## Requirements
+
+- Node.js 18+ (recommended)
+- Polygon RPC endpoint
+- MongoDB (local or Atlas)
+- USDC on Polygon + a small amount of POL (MATIC) for gas
+- A dedicated wallet/private key
 
 ## Configuration
 
-### Essential Variables
+The bot loads configuration from `.env` at startup. Required variables:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `USER_ADDRESSES` | Traders to copy (comma-separated) | `'0xABC..., 0xDEF...'` |
-| `PROXY_WALLET` | Your Polygon wallet address | `'0x123...'` |
-| `PRIVATE_KEY` | Wallet private key (no 0x prefix) | `'abc123...'` |
-| `MONGO_URI` | MongoDB connection string | `'mongodb+srv://...'` |
-| `RPC_URL` | Polygon RPC endpoint | `'https://polygon...'` |
-| `TRADE_MULTIPLIER` | Position size multiplier (default: 1.0) | `2.0` |
-| `FETCH_INTERVAL` | Check interval in seconds (default: 1) | `1` |
+- `USER_ADDRESSES` - trader wallet(s) to copy (comma-separated or JSON array)
+- `PROXY_WALLET` - your trading wallet (EOA or Gnosis Safe address)
+- `PRIVATE_KEY` - private key for signing (use a dedicated wallet)
+- `MONGO_URI` - MongoDB connection string
+- `RPC_URL` - Polygon RPC URL
+- `CLOB_HTTP_URL` - Polymarket CLOB HTTP endpoint
+- `CLOB_WS_URL` - Polymarket CLOB WebSocket endpoint
+- `USDC_CONTRACT_ADDRESS` - Polygon USDC contract address
 
-### Finding Traders
+See `.env.example` for all optional tuning parameters.
 
-1. Visit [Polymarket Leaderboard](https://polymarket.com/leaderboard)
-2. Look for traders with positive P&L, win rate >55%, and active trading history
-3. Verify detailed stats on [Predictfolio](https://predictfolio.com)
-4. Add wallet addresses to `USER_ADDRESSES`
+## Proxy Wallet Notes
 
-**📖 For complete configuration guide, see [Quick Start](./docs/QUICK_START.md)**
+Polymarket typically creates a proxy wallet (Gnosis Safe) for browser wallets. If your Polymarket profile shows a different address than your MetaMask address:
 
-## Docker Deployment
+- Set `PROXY_WALLET` to the Polymarket profile address (the proxy).
+- Keep funds (USDC.e + POL) in the proxy address, not the EOA.
+- Set `PRIVATE_KEY` to the EOA owner of the proxy.
+- Use `npm run check-allowance` and `npm run set-token-allowance` to approve spending.
+  - These scripts can submit Safe transactions when the proxy is a 1-of-1 Safe.
+  - For multi-sig Safes, use the Safe UI to execute the approval transactions.
 
-Deploy with Docker Compose for a production-ready setup:
+## Common Commands
+
+- `npm run setup` - interactive config wizard
+- `npm run health-check` - validate DB/RPC/balance connectivity
+- `npm run dev` - run in dev mode
+- `npm start` - run compiled bot
+- `npm run help` - list all available scripts
+
+## Docker (Optional)
+
+A `Dockerfile` and `docker-compose.yml` are provided.
 
 ```bash
-# Configure and start
 cp .env.example .env
-docker-compose up -d
-
-# View logs
-docker-compose logs -f polymarket
+# edit .env, then:
+docker compose up --build
 ```
 
-**📖 [Complete Docker Guide →](./docs/DOCKER.md)**
+## Logs & Data
 
-## Documentation
+- Daily logs: `logs/bot-YYYY-MM-DD.log`
+- MongoDB stores trade history and analysis data
 
-### Getting Started
-- **[🚀 Getting Started Guide](./docs/GETTING_STARTED.md)** - Complete beginner's guide
-- **[⚡ Quick Start](./docs/QUICK_START.md)** - Fast setup for experienced users
+## Safety Notes
 
-## License
+- Use a dedicated wallet and keep balances small until you trust your setup.
+- Always run `npm run health-check` before going live.
+- Start with conservative sizing and monitor activity regularly.
 
-ISC License - See [LICENSE](LICENSE) file for details.
+## Disclaimer
 
-## Acknowledgments
-
-- Built on [Polymarket CLOB Client](https://github.com/Polymarket/clob-client)
-- Uses [Predictfolio](https://predictfolio.com) for trader analytics
-- Powered by Polygon network
-
----
-
-## Advanced version
-
-**🚀 Version 2 Available:** An advanced version with **RTDS (Real-Time Data Stream)** monitoring is now available as a private repository. <br />
-Version 2 features the fastest trade detection method with near-instantaneous trade replication, lower latency, and reduced API load. Copy trading works excellently in the advanced version.
-
-<img width="680" height="313" alt="image (19)" src="https://github.com/user-attachments/assets/d868f9f2-a1dd-4bfe-a76e-d8cbdfbd8497" />
-
-## Trading tool
-
-I've also developed a trading bot for Polymarket built with **Rust**.
-
-<img width="1917" height="942" alt="image (21)" src="https://github.com/user-attachments/assets/08a5c962-7f8b-4097-98b6-7a457daa37c9" />
-https://www.youtube.com/watch?v=4f6jHT4-DQs
-
-**Disclaimer:** This software is for educational purposes only. Trading involves risk of loss. The developers are not responsible for any financial losses incurred while using this bot.
-
-**Support:** For questions or issues, contact via Telegram: [@Vladmeer](https://t.me/vladmeer67) | Twitter: [@Vladmeer](https://x.com/vladmeer67)
+This software is provided as-is with no guarantees. Trading involves risk and can lead to loss of funds. This is not financial advice.

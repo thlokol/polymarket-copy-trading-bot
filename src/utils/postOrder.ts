@@ -2,15 +2,12 @@ import { ClobClient, OrderType, Side } from '@polymarket/clob-client';
 import { ENV } from '../config/env';
 import { UserActivityInterface, UserPositionInterface } from '../interfaces/User';
 import { getUserActivityModel } from '../models/userHistory';
+import { leaderService } from '../services/leaderService';
 import Logger from './logger';
 import { calculateOrderSize, getTradeMultiplier } from '../config/copyStrategy';
 
 const RETRY_LIMIT = ENV.RETRY_LIMIT;
 const COPY_STRATEGY_CONFIG = ENV.COPY_STRATEGY_CONFIG;
-
-// Legacy parameters (for backward compatibility in SELL logic)
-const TRADE_MULTIPLIER = ENV.TRADE_MULTIPLIER;
-const COPY_PERCENTAGE = ENV.COPY_PERCENTAGE;
 
 // Polymarket minimum order sizes
 const MIN_ORDER_SIZE_USD = 1.0; // Minimum order size in USD for BUY orders
@@ -304,8 +301,15 @@ const postOrder = async (
         //Sell strategy
         Logger.info('Executing SELL strategy...');
         let remaining = 0;
+        const leaderShouldRelease = !user_position;
         if (!my_position) {
             Logger.warning('No position to sell');
+            if (leaderShouldRelease) {
+                await leaderService.releaseLeadership(trade.conditionId, userAddress);
+                Logger.info(
+                    `[Leader Released] Trader closed position, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
+                );
+            }
             await UserActivity.updateOne({ _id: trade._id }, { bot: true });
             return;
         }
@@ -496,6 +500,30 @@ const postOrder = async (
                 }
                 Logger.info(
                     `📝 Updated purchase tracking (sold ${(sellPercentage * 100).toFixed(1)}% of tracked position)`
+                );
+            }
+        }
+
+        const DUST_THRESHOLD = 0.01;
+        let leadershipReleased = false;
+
+        if (leaderShouldRelease) {
+            await leaderService.releaseLeadership(trade.conditionId, userAddress);
+            Logger.info(
+                `[Leader Released] Trader closed position, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
+            );
+            leadershipReleased = true;
+        }
+
+        // Check if our position is now closed and release leadership
+        if (!leadershipReleased && totalSoldTokens > 0) {
+            const remainingPosition = my_position.size - totalSoldTokens;
+
+            if (remainingPosition <= DUST_THRESHOLD) {
+                // Position is closed - release leadership
+                await leaderService.releaseLeadership(trade.conditionId, userAddress);
+                Logger.info(
+                    `[Leader Released] Position closed after sell, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
                 );
             }
         }
