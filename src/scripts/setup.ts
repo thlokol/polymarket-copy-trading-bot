@@ -37,6 +37,9 @@ interface Config {
     COPY_STRATEGY?: string;
     COPY_SIZE?: string;
     TRADE_MULTIPLIER?: string;
+    ADAPTIVE_MIN_PERCENT?: string;
+    ADAPTIVE_MAX_PERCENT?: string;
+    ADAPTIVE_THRESHOLD_USD?: string;
     MAX_ORDER_SIZE_USD?: string;
     MIN_ORDER_SIZE_USD?: string;
     FETCH_INTERVAL?: string;
@@ -89,7 +92,7 @@ async function setupUserAddresses(): Promise<string> {
     console.log('  • Win rate above 55%');
     console.log('  • Recent trading activity\n');
 
-    let addresses: string[] = [];
+    const addresses: string[] = [];
     let addingMore = true;
 
     while (addingMore) {
@@ -224,6 +227,9 @@ async function setupStrategy(): Promise<{
     copyStrategy: string;
     copySize: string;
     tradeMultiplier: string;
+    adaptiveMinPercent?: string;
+    adaptiveMaxPercent?: string;
+    adaptiveThresholdUsd?: string;
 }> {
     printSection('STEP 5: TRADING STRATEGY (OPTIONAL)');
 
@@ -246,17 +252,46 @@ async function setupStrategy(): Promise<{
         if (strategyChoice === '3') strategy = 'ADAPTIVE';
 
         const copySize = await question(
-            `${colors.green}Copy size (% for PERCENTAGE, $ for FIXED, default 10.0): ${colors.reset}`
+            `${colors.green}Copy size (% for PERCENTAGE, $ for FIXED, base % for ADAPTIVE, default 10.0): ${colors.reset}`
         );
 
         const multiplier = await question(
             `${colors.green}Trade multiplier (1.0 = normal, 2.0 = 2x aggressive, 0.5 = conservative, default 1.0): ${colors.reset}`
         );
 
+        // Ask for ADAPTIVE-specific parameters if ADAPTIVE strategy is chosen
+        let adaptiveMinPercent: string | undefined;
+        let adaptiveMaxPercent: string | undefined;
+        let adaptiveThresholdUsd: string | undefined;
+
+        if (strategy === 'ADAPTIVE') {
+            console.log(`\n${colors.yellow}ADAPTIVE Strategy Configuration:${colors.reset}`);
+            console.log('  • Small orders (< threshold) use HIGHER percentage (up to max)');
+            console.log('  • Large orders (> threshold) use LOWER percentage (down to min)');
+            console.log('  • This helps you copy more of small trades, less of large trades\n');
+
+            adaptiveMinPercent = await question(
+                `${colors.green}Minimum % for large orders (default 5.0): ${colors.reset}`
+            );
+
+            adaptiveMaxPercent = await question(
+                `${colors.green}Maximum % for small orders (default 15.0): ${colors.reset}`
+            );
+
+            adaptiveThresholdUsd = await question(
+                `${colors.green}Threshold in USD (default 500.0): ${colors.reset}`
+            );
+
+            console.log(`${colors.green}✓ ADAPTIVE configured: ${adaptiveMinPercent || '5.0'}% - ${adaptiveMaxPercent || '15.0'}% around $${adaptiveThresholdUsd || '500'}${colors.reset}`);
+        }
+
         return {
             copyStrategy: strategy,
             copySize: copySize || '10.0',
             tradeMultiplier: multiplier || '1.0',
+            adaptiveMinPercent: adaptiveMinPercent || undefined,
+            adaptiveMaxPercent: adaptiveMaxPercent || undefined,
+            adaptiveThresholdUsd: adaptiveThresholdUsd || undefined,
         };
     }
 
@@ -334,6 +369,11 @@ COPY_STRATEGY='${config.COPY_STRATEGY}'
 COPY_SIZE='${config.COPY_SIZE}'
 TRADE_MULTIPLIER='${config.TRADE_MULTIPLIER}'
 
+# Adaptive strategy parameters (only used when COPY_STRATEGY=ADAPTIVE)
+${config.ADAPTIVE_MIN_PERCENT ? `ADAPTIVE_MIN_PERCENT='${config.ADAPTIVE_MIN_PERCENT}'` : "# ADAPTIVE_MIN_PERCENT='5.0'"}
+${config.ADAPTIVE_MAX_PERCENT ? `ADAPTIVE_MAX_PERCENT='${config.ADAPTIVE_MAX_PERCENT}'` : "# ADAPTIVE_MAX_PERCENT='15.0'"}
+${config.ADAPTIVE_THRESHOLD_USD ? `ADAPTIVE_THRESHOLD_USD='${config.ADAPTIVE_THRESHOLD_USD}'` : "# ADAPTIVE_THRESHOLD_USD='500.0'"}
+
 # ================================================================
 # RISK LIMITS
 # ================================================================
@@ -388,6 +428,9 @@ async function main() {
             COPY_STRATEGY: strategy.copyStrategy,
             COPY_SIZE: strategy.copySize,
             TRADE_MULTIPLIER: strategy.tradeMultiplier,
+            ADAPTIVE_MIN_PERCENT: strategy.adaptiveMinPercent,
+            ADAPTIVE_MAX_PERCENT: strategy.adaptiveMaxPercent,
+            ADAPTIVE_THRESHOLD_USD: strategy.adaptiveThresholdUsd,
             MAX_ORDER_SIZE_USD: limits.maxOrder,
             MIN_ORDER_SIZE_USD: limits.minOrder,
         };

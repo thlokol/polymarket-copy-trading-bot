@@ -1,5 +1,7 @@
 import { MarketLeader } from '../models/marketLeader';
 import { IMarketLeader, LeaderCheckResult, TradeCandidate } from '../interfaces/MarketLeader';
+import { UserPositionInterface } from '../interfaces/User';
+import fetchData from '../utils/fetchData';
 import Logger from '../utils/logger';
 
 /**
@@ -93,15 +95,32 @@ class LeaderService {
         } catch (error: unknown) {
             // Handle duplicate key error (another process already created leader)
             if (
-                error instanceof Error &&
+                typeof error === 'object' &&
+                error !== null &&
                 'code' in error &&
                 (error as { code: number }).code === 11000
             ) {
+                const duplicate = error as {
+                    keyPattern?: Record<string, number>;
+                    keyValue?: Record<string, string>;
+                };
+                const keyPattern = duplicate.keyPattern || {};
                 const marketLabel = winner.slug || winner.title || `${winner.conditionId.slice(0, 8)}...`;
+                if (keyPattern.conditionId && keyPattern.isActive) {
+                    Logger.warning(
+                        `[Leader] Duplicate: leader already established for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
+                    );
+                    return null;
+                }
+                if (keyPattern.initialTransactionHash) {
+                    Logger.warning(
+                        `[Leader] Duplicate: transaction already tracked for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
+                    );
+                    return null;
+                }
                 Logger.warning(
-                    `[Leader] Duplicate: leader already established for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
+                    `[Leader] Duplicate key error establishing leader for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
                 );
-                return null;
             }
             throw error;
         }
@@ -165,17 +184,87 @@ class LeaderService {
      */
     async cleanupStaleLeaders(maxAgeHours: number = 168): Promise<number> {
         const cutoffTime = Date.now() / 1000 - maxAgeHours * 60 * 60;
+        const staleLeaders = (await MarketLeader.find({
+            isActive: true,
+            $or: [
+                { lastTradeTimestamp: { $lt: cutoffTime } },
+                {
+                    lastTradeTimestamp: { $exists: false },
+                    initialTradeTimestamp: { $lt: cutoffTime },
+                },
+            ],
+        }).lean()) as IMarketLeader[];
+
+        if (staleLeaders.length === 0) {
+            return 0;
+        }
+
+        const positionsCache = new Map<string, UserPositionInterface[] | null>();
+        const DUST_THRESHOLD = 0.01;
+
+        const getLeaderPositions = async (
+            leaderAddress: string
+        ): Promise<UserPositionInterface[] | null> => {
+            const cacheKey = leaderAddress.toLowerCase();
+            if (positionsCache.has(cacheKey)) {
+                return positionsCache.get(cacheKey) || null;
+            }
+            try {
+                const positions = await fetchData(
+                    `https://data-api.polymarket.com/positions?user=${cacheKey}`
+                );
+                if (!Array.isArray(positions)) {
+                    Logger.warning(
+                        `[Leader] Unexpected positions response for ${cacheKey.slice(0, 8)}...`
+                    );
+                    positionsCache.set(cacheKey, null);
+                    return null;
+                }
+                const typedPositions = positions as UserPositionInterface[];
+                positionsCache.set(cacheKey, typedPositions);
+                return typedPositions;
+            } catch (error) {
+                Logger.warning(
+                    `[Leader] Failed to fetch positions for ${cacheKey.slice(0, 8)}...: ${error}`
+                );
+                positionsCache.set(cacheKey, null);
+                return null;
+            }
+        };
+
+        const releaseCandidates: Array<{ conditionId: string; leaderAddress: string }> = [];
+
+        for (const leader of staleLeaders) {
+            const positions = await getLeaderPositions(leader.leaderAddress);
+            if (!positions) {
+                continue;
+            }
+
+            const hasPosition = positions.some(
+                (position) =>
+                    position.conditionId === leader.conditionId &&
+                    (position.size || 0) > DUST_THRESHOLD
+            );
+
+            if (!hasPosition) {
+                releaseCandidates.push({
+                    conditionId: leader.conditionId,
+                    leaderAddress: leader.leaderAddress.toLowerCase(),
+                });
+            }
+        }
+
+        if (releaseCandidates.length === 0) {
+            return 0;
+        }
 
         const result = await MarketLeader.updateMany(
             {
                 isActive: true,
-                $or: [
-                    { lastTradeTimestamp: { $lt: cutoffTime } },
-                    {
-                        lastTradeTimestamp: { $exists: false },
-                        initialTradeTimestamp: { $lt: cutoffTime },
-                    },
-                ],
+                $or: releaseCandidates.map((candidate) => ({
+                    conditionId: candidate.conditionId,
+                    leaderAddress: candidate.leaderAddress,
+                })),
             },
             { $set: { isActive: false } }
         );

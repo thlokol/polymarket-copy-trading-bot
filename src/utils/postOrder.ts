@@ -305,8 +305,15 @@ const postOrder = async (
         //Sell strategy
         Logger.info('Executing SELL strategy...');
         let remaining = 0;
+        const leaderShouldRelease = !user_position;
         if (!my_position) {
             Logger.warning('No position to sell');
+            if (leaderShouldRelease) {
+                await leaderService.releaseLeadership(trade.conditionId, userAddress);
+                Logger.info(
+                    `[Leader Released] Trader closed position, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
+                );
+            }
             await UserActivity.updateOne({ _id: trade._id }, { bot: true });
             return;
         }
@@ -501,10 +508,20 @@ const postOrder = async (
             }
         }
 
+        const DUST_THRESHOLD = 0.01;
+        let leadershipReleased = false;
+
+        if (leaderShouldRelease) {
+            await leaderService.releaseLeadership(trade.conditionId, userAddress);
+            Logger.info(
+                `[Leader Released] Trader closed position, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
+            );
+            leadershipReleased = true;
+        }
+
         // Check if our position is now closed and release leadership
-        if (totalSoldTokens > 0) {
+        if (!leadershipReleased && totalSoldTokens > 0) {
             const remainingPosition = my_position.size - totalSoldTokens;
-            const DUST_THRESHOLD = 0.01;
 
             if (remainingPosition <= DUST_THRESHOLD) {
                 // Position is closed - release leadership
