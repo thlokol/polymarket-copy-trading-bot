@@ -74,7 +74,7 @@ Depois, se quiser evoluir:
 2) Permitir troca de leader apenas se score + volume superarem um limiar.
 
 ## Perguntas para fechar requisitos
-- O leader deve ser global (um unico user manda em tudo) ou por conditionId?
-- Em trades de venda parcial, seguimos proporcionalmente ou so quando ele zera?
-- Em caso de "duas compras quase simultaneas", quem ganha?
+- O leader deve ser global (um unico user manda em tudo) ou por conditionId? Lider apenas por conditionId
+- Em trades de venda parcial, seguimos proporcionalmente ou so quando ele zera? Proporcionalmente sempre, mas caso ele escolha ZERAR, devemos também zerar.
+- Em caso de "duas compras quase simultaneas", quem ganha? A maior compra ganha.
 
