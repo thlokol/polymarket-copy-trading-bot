@@ -3,6 +3,7 @@ import { ENV } from './config/env';
 import createClobClient from './utils/createClobClient';
 import tradeExecutor, { stopTradeExecutor } from './services/tradeExecutor';
 import tradeMonitor, { stopTradeMonitor } from './services/tradeMonitor';
+import { leaderService } from './services/leaderService';
 import Logger from './utils/logger';
 import { performHealthCheck, logHealthCheck } from './utils/healthCheck';
 import test from './test/test';
@@ -85,6 +86,15 @@ export const main = async () => {
 
         if (!healthResult.healthy) {
             Logger.warning('Health check failed, but continuing startup...');
+        }
+
+        // Cleanup stale market leaders from previous runs
+        Logger.info('Cleaning up stale market leaders...');
+        const cleanedCount = await leaderService.cleanupStaleLeaders(168); // 7 days
+        if (cleanedCount > 0) {
+            Logger.warning(`Cleaned up ${cleanedCount} stale leader(s)`);
+        } else {
+            Logger.success('No stale leaders to clean up');
         }
 
         Logger.info('Initializing CLOB client...');

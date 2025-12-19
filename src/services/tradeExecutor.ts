@@ -1,8 +1,10 @@
 import { ClobClient } from '@polymarket/clob-client';
 import { UserActivityInterface, UserPositionInterface } from '../interfaces/User';
+import { TradeCandidate } from '../interfaces/MarketLeader';
 import { ENV } from '../config/env';
 import { BOT_START_TIMESTAMP } from '../config/runtime';
 import { getUserActivityModel } from '../models/userHistory';
+import { leaderService } from './leaderService';
 import fetchData from '../utils/fetchData';
 import getMyBalance from '../utils/getMyBalance';
 import postOrder from '../utils/postOrder';
@@ -39,6 +41,14 @@ interface AggregatedTrade {
     lastTradeTime: number;
 }
 
+const shortAddress = (address: string): string => `${address.slice(0, 8)}...`;
+
+const formatMarketLabel = (trade: TradeWithUser, conditionId: string): string => {
+    if (trade.slug) return trade.slug;
+    if (trade.title) return trade.title;
+    return `${conditionId.slice(0, 8)}...`;
+};
+
 // Buffer for aggregating trades
 const tradeAggregationBuffer: Map<string, AggregatedTrade> = new Map();
 
@@ -68,6 +78,187 @@ const readTempTrades = async (): Promise<TradeWithUser[]> => {
     }
 
     return allTrades;
+};
+
+/**
+ * Filter trades based on leader-per-market strategy.
+ * Groups trades by conditionId, determines leaders, and filters non-leader trades.
+ */
+const filterTradesByLeader = async (
+    trades: TradeWithUser[]
+): Promise<{
+    leaderTrades: TradeWithUser[];
+    skippedTrades: TradeWithUser[];
+}> => {
+    const leaderTrades: TradeWithUser[] = [];
+    const skippedTrades: TradeWithUser[] = [];
+
+    // Group trades by conditionId (leader is per market)
+    const tradeGroups = new Map<string, TradeWithUser[]>();
+
+    for (const trade of trades) {
+        const key = trade.conditionId;
+        const existing = tradeGroups.get(key) || [];
+        existing.push(trade);
+        tradeGroups.set(key, existing);
+    }
+
+    // Process each group
+    for (const [conditionId, groupTrades] of tradeGroups.entries()) {
+        const leaderCheck = await leaderService.checkLeadership(
+            conditionId,
+            groupTrades[0].userAddress
+        );
+
+        if (leaderCheck.hasLeader) {
+            // There's already a leader - filter trades accordingly
+            for (const trade of groupTrades) {
+                const marketLabel = formatMarketLabel(trade, conditionId);
+                const isLeader =
+                    trade.userAddress.toLowerCase() ===
+                    leaderCheck.currentLeader?.leaderAddress.toLowerCase();
+
+                if (isLeader) {
+                    leaderTrades.push(trade);
+                    await leaderService.recordLeaderTrade(
+                        conditionId,
+                        trade.userAddress,
+                        trade.timestamp
+                    );
+                    Logger.info(
+                        `[Leader] ${shortAddress(trade.userAddress)} accepted for ${marketLabel} (${conditionId.slice(0, 8)}...)`
+                    );
+                } else {
+                    skippedTrades.push(trade);
+                    const leaderAddress = leaderCheck.currentLeader?.leaderAddress || 'unknown';
+                    Logger.warning(
+                        `[Skipped] ${shortAddress(trade.userAddress)} ignored for ${marketLabel} ` +
+                            `(leader: ${shortAddress(leaderAddress)}, reason: not leader)`
+                    );
+                    // Mark as processed (skipped due to leader conflict)
+                    const UserActivity = getUserActivityModel(trade.userAddress);
+                    await UserActivity.updateOne(
+                        { _id: trade._id },
+                        { $set: { bot: true, botExcutedTime: -1 } } // -1 indicates skipped
+                    );
+                }
+            }
+        } else {
+            // No leader yet - establish leader from BUY trades only
+            const buyTrades = groupTrades.filter((t) => t.side === 'BUY');
+
+            if (buyTrades.length === 0) {
+                Logger.warning(
+                    `[Skipped] No BUY trades to establish leader for ${formatMarketLabel(
+                        groupTrades[0],
+                        conditionId
+                    )} (${conditionId.slice(0, 8)}...)`
+                );
+                for (const trade of groupTrades) {
+                    skippedTrades.push(trade);
+                    const UserActivity = getUserActivityModel(trade.userAddress);
+                    await UserActivity.updateOne(
+                        { _id: trade._id },
+                        { $set: { bot: true, botExcutedTime: -2 } } // -2 indicates no leader established
+                    );
+                }
+                continue;
+            }
+
+            const candidates: TradeCandidate[] = buyTrades.map((t) => ({
+                userAddress: t.userAddress,
+                conditionId: t.conditionId,
+                asset: t.asset,
+                side: (t.side as 'BUY' | 'SELL') || 'BUY',
+                usdcSize: t.usdcSize,
+                timestamp: t.timestamp,
+                transactionHash: t.transactionHash,
+                slug: t.slug,
+                title: t.title,
+            }));
+
+            const winner = await leaderService.establishLeader(candidates);
+
+            if (!winner) {
+                const existingLeader = await leaderService.getActiveLeader(conditionId);
+                if (existingLeader) {
+                    for (const trade of groupTrades) {
+                        const marketLabel = formatMarketLabel(trade, conditionId);
+                        const isLeader =
+                            trade.userAddress.toLowerCase() ===
+                            existingLeader.leaderAddress.toLowerCase();
+
+                        if (isLeader) {
+                            leaderTrades.push(trade);
+                            await leaderService.recordLeaderTrade(
+                                conditionId,
+                                trade.userAddress,
+                                trade.timestamp
+                            );
+                            Logger.info(
+                                `[Leader] ${shortAddress(trade.userAddress)} accepted for ${marketLabel} (${conditionId.slice(0, 8)}...)`
+                            );
+                        } else {
+                            skippedTrades.push(trade);
+                            Logger.warning(
+                                `[Skipped] ${shortAddress(trade.userAddress)} ignored for ${marketLabel} ` +
+                                    `(leader: ${shortAddress(existingLeader.leaderAddress)}, reason: race)`
+                            );
+                            const UserActivity = getUserActivityModel(trade.userAddress);
+                            await UserActivity.updateOne(
+                                { _id: trade._id },
+                                { $set: { bot: true, botExcutedTime: -1 } }
+                            );
+                        }
+                    }
+                } else {
+                    for (const trade of groupTrades) {
+                        const marketLabel = formatMarketLabel(trade, conditionId);
+                        skippedTrades.push(trade);
+                        Logger.warning(
+                            `[Skipped] ${shortAddress(trade.userAddress)} ignored for ${marketLabel} ` +
+                                `(reason: leader not established)`
+                        );
+                        const UserActivity = getUserActivityModel(trade.userAddress);
+                        await UserActivity.updateOne(
+                            { _id: trade._id },
+                            { $set: { bot: true, botExcutedTime: -1 } }
+                        );
+                    }
+                }
+                continue;
+            }
+
+            for (const trade of groupTrades) {
+                const marketLabel = formatMarketLabel(trade, conditionId);
+                if (trade.userAddress.toLowerCase() === winner.userAddress.toLowerCase()) {
+                    leaderTrades.push(trade);
+                    await leaderService.recordLeaderTrade(
+                        conditionId,
+                        trade.userAddress,
+                        trade.timestamp
+                    );
+                    Logger.success(
+                        `[Leader Won] ${shortAddress(trade.userAddress)} won for ${marketLabel} ` +
+                            `(${conditionId.slice(0, 8)}...) with $${trade.usdcSize.toFixed(2)}`
+                    );
+                } else {
+                    skippedTrades.push(trade);
+                    Logger.warning(
+                        `[Skipped] ${shortAddress(trade.userAddress)} ignored for ${marketLabel} ` +
+                            `(reason: lost leadership, $${trade.usdcSize.toFixed(2)})`
+                    );
+                    const UserActivity = getUserActivityModel(trade.userAddress);
+                    await UserActivity.updateOne(
+                        { _id: trade._id },
+                        { $set: { bot: true, botExcutedTime: -1 } }
+                    );
+                }
+            }
+        }
+    }
+
+    return { leaderTrades, skippedTrades };
 };
 
 /**
@@ -290,7 +481,14 @@ const tradeExecutor = async (clobClient: ClobClient) => {
 
     let lastCheck = Date.now();
     while (isRunning) {
-        const trades = await readTempTrades();
+        const rawTrades = await readTempTrades();
+
+        // Filter trades based on leader-per-market strategy
+        const { leaderTrades: trades, skippedTrades } = await filterTradesByLeader(rawTrades);
+
+        if (skippedTrades.length > 0) {
+            Logger.info(`Skipped ${skippedTrades.length} trade(s) due to leader conflicts`);
+        }
 
         if (TRADE_AGGREGATION_ENABLED) {
             // Process with aggregation logic

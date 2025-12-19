@@ -2,6 +2,7 @@ import { ClobClient, OrderType, Side } from '@polymarket/clob-client';
 import { ENV } from '../config/env';
 import { UserActivityInterface, UserPositionInterface } from '../interfaces/User';
 import { getUserActivityModel } from '../models/userHistory';
+import { leaderService } from '../services/leaderService';
 import Logger from './logger';
 import { calculateOrderSize, getTradeMultiplier } from '../config/copyStrategy';
 
@@ -496,6 +497,20 @@ const postOrder = async (
                 }
                 Logger.info(
                     `📝 Updated purchase tracking (sold ${(sellPercentage * 100).toFixed(1)}% of tracked position)`
+                );
+            }
+        }
+
+        // Check if our position is now closed and release leadership
+        if (totalSoldTokens > 0) {
+            const remainingPosition = my_position.size - totalSoldTokens;
+            const DUST_THRESHOLD = 0.01;
+
+            if (remainingPosition <= DUST_THRESHOLD) {
+                // Position is closed - release leadership
+                await leaderService.releaseLeadership(trade.conditionId, userAddress);
+                Logger.info(
+                    `[Leader Released] Position closed after sell, leadership released for ${trade.slug || trade.asset.slice(0, 8)}... (${trade.conditionId.slice(0, 8)}...)`
                 );
             }
         }
