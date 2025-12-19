@@ -1,6 +1,7 @@
 import { ClobClient } from '@polymarket/clob-client';
 import { UserActivityInterface, UserPositionInterface } from '../interfaces/User';
 import { ENV } from '../config/env';
+import { BOT_START_TIMESTAMP } from '../config/runtime';
 import { getUserActivityModel } from '../models/userHistory';
 import fetchData from '../utils/fetchData';
 import getMyBalance from '../utils/getMyBalance';
@@ -49,7 +50,12 @@ const readTempTrades = async (): Promise<TradeWithUser[]> => {
         // This prevents processing the same trade multiple times
         const trades = await model
             .find({
-                $and: [{ type: 'TRADE' }, { bot: false }, { botExcutedTime: 0 }],
+                $and: [
+                    { type: 'TRADE' },
+                    { bot: false },
+                    { botExcutedTime: 0 },
+                    { timestamp: { $gte: BOT_START_TIMESTAMP } },
+                ],
             })
             .exec();
 

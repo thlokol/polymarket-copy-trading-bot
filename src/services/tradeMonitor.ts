@@ -1,4 +1,5 @@
 import { ENV } from '../config/env';
+import { BOT_START_TIMESTAMP } from '../config/runtime';
 import { getUserActivityModel, getUserPositionModel } from '../models/userHistory';
 import fetchData from '../utils/fetchData';
 import Logger from '../utils/logger';
@@ -116,10 +117,14 @@ const fetchTradeData = async () => {
                 continue;
             }
 
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const tooOldCutoff = nowSeconds - TOO_OLD_TIMESTAMP * 60 * 60;
+            const minTimestamp = Math.max(BOT_START_TIMESTAMP, tooOldCutoff);
+
             // Process each activity
             for (const activity of activities) {
-                // Skip if too old
-                if (activity.timestamp < TOO_OLD_TIMESTAMP) {
+                // Skip if too old or before this bot run started
+                if (activity.timestamp < minTimestamp) {
                     continue;
                 }
 
@@ -234,7 +239,13 @@ const tradeMonitor = async () => {
         Logger.info('First run: marking all historical trades as processed...');
         for (const { address, UserActivity } of userModels) {
             const count = await UserActivity.updateMany(
-                { bot: false },
+                {
+                    bot: false,
+                    $or: [
+                        { timestamp: { $lt: BOT_START_TIMESTAMP } },
+                        { timestamp: { $exists: false } },
+                    ],
+                },
                 { $set: { bot: true, botExcutedTime: 999 } }
             );
             if (count.modifiedCount > 0) {
