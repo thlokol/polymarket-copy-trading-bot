@@ -18,6 +18,8 @@ const TRADE_AGGREGATION_WINDOW_SECONDS = ENV.TRADE_AGGREGATION_WINDOW_SECONDS;
 const TRADE_AGGREGATION_MIN_TOTAL_USD = 1.0; // Polymarket minimum
 const LEADER_ELECTION_WINDOW_SECONDS = 2;
 const BOT_EXECUTED_TIME_BUFFERED = 1;
+const MAX_AGGREGATION_BUFFER_SIZE = 100;
+const BOT_EXECUTED_TIME_DROPPED = -3;
 
 // Create activity models for each user
 const userActivityModels = USER_ADDRESSES.map((address) => ({
@@ -131,6 +133,16 @@ const markTradeBuffered = async (trade: TradeWithUser): Promise<void> => {
     );
 };
 
+const dropAggregationEntry = async (key: string, aggregation: AggregatedTrade): Promise<void> => {
+    Logger.warning(`[Aggregation] Buffer full, dropping oldest entry: ${key}`);
+    const UserActivity = getUserActivityModel(aggregation.userAddress);
+    await UserActivity.updateMany(
+        { _id: { $in: aggregation.trades.map((trade) => trade._id) } },
+        { $set: { bot: true, botExcutedTime: BOT_EXECUTED_TIME_DROPPED } }
+    );
+    tradeAggregationBuffer.delete(key);
+};
+
 const handleAcceptedTrade = async (clobClient: ClobClient, trade: TradeWithUser): Promise<void> => {
     if (
         TRADE_AGGREGATION_ENABLED &&
@@ -141,7 +153,7 @@ const handleAcceptedTrade = async (clobClient: ClobClient, trade: TradeWithUser)
         Logger.info(
             `Adding $${trade.usdcSize.toFixed(2)} ${trade.side} trade to aggregation buffer for ${trade.slug || trade.asset}`
         );
-        addToAggregationBuffer(trade);
+        await addToAggregationBuffer(trade);
         return;
     }
 
@@ -281,10 +293,27 @@ const getAggregationKey = (trade: TradeWithUser): string => {
 /**
  * Add trade to aggregation buffer or update existing aggregation
  */
-const addToAggregationBuffer = (trade: TradeWithUser): void => {
+const addToAggregationBuffer = async (trade: TradeWithUser): Promise<void> => {
     const key = getAggregationKey(trade);
+
+    // Prevent memory leak - drop oldest entries if buffer is too large
+    if (
+        !tradeAggregationBuffer.has(key) &&
+        tradeAggregationBuffer.size >= MAX_AGGREGATION_BUFFER_SIZE
+    ) {
+        const oldestKey = tradeAggregationBuffer.keys().next().value;
+        if (oldestKey) {
+            const oldestEntry = tradeAggregationBuffer.get(oldestKey);
+            if (oldestEntry) {
+                await dropAggregationEntry(oldestKey, oldestEntry);
+            } else {
+                tradeAggregationBuffer.delete(oldestKey);
+            }
+        }
+    }
+
     const existing = tradeAggregationBuffer.get(key);
-    const now = Date.now();
+    const now = Math.floor(Date.now() / 1000);
 
     if (existing) {
         const tradeId = String(trade._id);
@@ -325,8 +354,8 @@ const addToAggregationBuffer = (trade: TradeWithUser): void => {
  */
 const getReadyAggregatedTrades = async (): Promise<AggregatedTrade[]> => {
     const ready: AggregatedTrade[] = [];
-    const now = Date.now();
-    const windowMs = TRADE_AGGREGATION_WINDOW_SECONDS * 1000;
+    const now = Math.floor(Date.now() / 1000);
+    const windowSeconds = TRADE_AGGREGATION_WINDOW_SECONDS;
     const leaderCache = new Map<string, string | null>();
 
     const getLeaderAddress = async (conditionId: string): Promise<string | null> => {
@@ -357,7 +386,7 @@ const getReadyAggregatedTrades = async (): Promise<AggregatedTrade[]> => {
         const timeElapsed = now - agg.firstTradeTime;
 
         // Check if aggregation is ready
-        if (timeElapsed >= windowMs) {
+        if (timeElapsed >= windowSeconds) {
             if (agg.totalUsdcSize >= TRADE_AGGREGATION_MIN_TOTAL_USD) {
                 // Aggregation meets minimum and window passed - ready to execute
                 ready.push(agg);

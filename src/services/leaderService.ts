@@ -110,12 +110,42 @@ class LeaderService {
                     Logger.warning(
                         `[Leader] Duplicate: leader already established for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
                     );
+                    // Return the existing leader instead of null
+                    const existingLeader = await this.getActiveLeader(winner.conditionId);
+                    if (existingLeader) {
+                        return {
+                            userAddress: existingLeader.leaderAddress,
+                            conditionId: existingLeader.conditionId,
+                            asset: existingLeader.asset,
+                            side: existingLeader.side,
+                            usdcSize: existingLeader.initialTradeSize,
+                            timestamp: existingLeader.initialTradeTimestamp,
+                            transactionHash: existingLeader.initialTransactionHash,
+                            slug: existingLeader.slug,
+                            title: existingLeader.title,
+                        } as TradeCandidate;
+                    }
                     return null;
                 }
                 if (keyPattern.initialTransactionHash) {
                     Logger.warning(
                         `[Leader] Duplicate: transaction already tracked for ${marketLabel} (${winner.conditionId.slice(0, 8)}...)`
                     );
+                    // Return the existing leader instead of null
+                    const existingLeader = await this.getActiveLeader(winner.conditionId);
+                    if (existingLeader) {
+                        return {
+                            userAddress: existingLeader.leaderAddress,
+                            conditionId: existingLeader.conditionId,
+                            asset: existingLeader.asset,
+                            side: existingLeader.side,
+                            usdcSize: existingLeader.initialTradeSize,
+                            timestamp: existingLeader.initialTradeTimestamp,
+                            transactionHash: existingLeader.initialTransactionHash,
+                            slug: existingLeader.slug,
+                            title: existingLeader.title,
+                        } as TradeCandidate;
+                    }
                     return null;
                 }
                 Logger.warning(
@@ -260,10 +290,10 @@ class LeaderService {
 
         const result = await MarketLeader.updateMany(
             {
-                isActive: true,
                 $or: releaseCandidates.map((candidate) => ({
                     conditionId: candidate.conditionId,
                     leaderAddress: candidate.leaderAddress,
+                    isActive: true,
                 })),
             },
             { $set: { isActive: false } }
