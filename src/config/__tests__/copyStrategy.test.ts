@@ -29,8 +29,15 @@ describe('calculateOrderSize', () => {
             expect(result.cappedByMax).toBe(true);
         });
 
-        it('should return 0 if below minimum', () => {
+        it('should bump to minimum if below minimum and affordable', () => {
             const result = calculateOrderSize(baseConfig, 5, 1000, 0);
+            expect(result.finalAmount).toBe(1.0);
+            expect(result.belowMinimum).toBe(true);
+        });
+
+        it('should return 0 if below minimum and not affordable', () => {
+            // 0.99 safety buffer: $1.00 balance -> maxAffordable $0.99, cannot place $1.00 minimum
+            const result = calculateOrderSize(baseConfig, 5, 1.0, 0);
             expect(result.finalAmount).toBe(0);
             expect(result.belowMinimum).toBe(true);
         });
@@ -311,4 +318,3 @@ describe('calculateOrderSize with tiered multipliers', () => {
         expect(largeResult.finalAmount).toBe(5.0);
     });
 });
-

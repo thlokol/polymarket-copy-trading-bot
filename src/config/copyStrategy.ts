@@ -142,10 +142,20 @@ export function calculateOrderSize(
     }
 
     // Step 5: Check minimum order size
-    if (finalAmount < config.minOrderSizeUSD) {
+    if (finalAmount > 0 && finalAmount < config.minOrderSizeUSD) {
         belowMinimum = true;
-        reasoning += ` → Below minimum $${config.minOrderSizeUSD}`;
-        finalAmount = 0; // Don't execute
+        const minOrderSizeUSD = config.minOrderSizeUSD;
+        const fitsPositionLimit =
+            !config.maxPositionSizeUSD ||
+            currentPositionSize + minOrderSizeUSD <= config.maxPositionSizeUSD;
+
+        if (maxAffordable >= minOrderSizeUSD && fitsPositionLimit) {
+            finalAmount = minOrderSizeUSD;
+            reasoning += ` → Below minimum $${minOrderSizeUSD} → Using minimum $${minOrderSizeUSD}`;
+        } else {
+            reasoning += ` → Below minimum $${minOrderSizeUSD}`;
+            finalAmount = 0; // Don't execute
+        }
     }
 
     return {
