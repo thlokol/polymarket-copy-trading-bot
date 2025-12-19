@@ -72,9 +72,6 @@ console.log('');
 console.log(`${colors.yellow}${colors.bright}📚 DOCUMENTATION${colors.reset}\n`);
 console.log(`  ${colors.cyan}GETTING_STARTED.md${colors.reset}        Complete beginner's guide`);
 console.log(`  ${colors.cyan}README.md${colors.reset}                 Full documentation`);
-console.log(`  ${colors.cyan}docs/QUICK_START.md${colors.reset}       5-minute quick start`);
-console.log(`  ${colors.cyan}docs/DOCKER.md${colors.reset}            Docker deployment guide`);
-console.log(`  ${colors.cyan}docs/MULTI_TRADER_GUIDE.md${colors.reset}  Copy multiple traders`);
 console.log('');
 
 console.log(`${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}\n`);
@@ -86,4 +83,3 @@ console.log('  • Find traders: npm run find-traders');
 console.log('  • Emergency stop: Press Ctrl+C');
 console.log('');
 console.log(`${colors.yellow}⚠️  Always start with small amounts and monitor regularly!${colors.reset}\n`);
-
