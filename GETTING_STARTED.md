@@ -38,6 +38,19 @@ Tips:
 - `PROXY_WALLET` is the wallet that will execute trades.
 - `PRIVATE_KEY` should be the signing key for that wallet (or a Safe owner key).
 
+## Proxy Wallet (Polymarket Profile Address)
+
+If your Polymarket profile address differs from your MetaMask address, Polymarket created a proxy wallet (Gnosis Safe):
+
+- Set `PROXY_WALLET` to the Polymarket profile address (the proxy).
+- Fund the proxy address with USDC.e and POL (MATIC).
+- Set `PRIVATE_KEY` to the EOA owner of the proxy.
+- Run approvals:
+  - `npm run check-allowance`
+  - `npm run set-token-allowance`
+  - These scripts can execute Safe transactions for a 1-of-1 Safe.
+  - For multi-sig Safes, use the Safe UI to execute approvals.
+
 ## 4) Fund Your Wallet
 
 Before running the bot:

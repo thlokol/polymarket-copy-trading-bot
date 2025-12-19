@@ -70,6 +70,17 @@ The bot loads configuration from `.env` at startup. Required variables:
 
 See `.env.example` for all optional tuning parameters.
 
+## Proxy Wallet Notes
+
+Polymarket typically creates a proxy wallet (Gnosis Safe) for browser wallets. If your Polymarket profile shows a different address than your MetaMask address:
+
+- Set `PROXY_WALLET` to the Polymarket profile address (the proxy).
+- Keep funds (USDC.e + POL) in the proxy address, not the EOA.
+- Set `PRIVATE_KEY` to the EOA owner of the proxy.
+- Use `npm run check-allowance` and `npm run set-token-allowance` to approve spending.
+  - These scripts can submit Safe transactions when the proxy is a 1-of-1 Safe.
+  - For multi-sig Safes, use the Safe UI to execute the approval transactions.
+
 ## Common Commands
 
 - `npm run setup` - interactive config wizard

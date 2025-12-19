@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import { AssetType, ClobClient, getContractConfig } from '@polymarket/clob-client';
 import { SignatureType } from '@polymarket/order-utils';
 import { ENV } from '../config/env';
+import { executeSafeTransaction } from '../utils/gnosisSafe';
 
 const PROXY_WALLET = ENV.PROXY_WALLET;
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
@@ -184,6 +185,8 @@ async function checkAndSetAllowance() {
     // Connect to Polygon
     const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const proxyCode = await provider.getCode(PROXY_WALLET);
+    const isProxySafe = proxyCode !== '0x';
 
     // Create USDC contract instance
     const usdcContract = new ethers.Contract(USDC_CONTRACT_ADDRESS, USDC_ABI, wallet);
@@ -275,10 +278,28 @@ async function checkAndSetAllowance() {
 
             console.log(`⛽ Gas Price: ${ethers.utils.formatUnits(gasPrice, 'gwei')} Gwei`);
 
-            const approveTx = await polymarketContract.approve(POLYMARKET_EXCHANGE, maxAllowance, {
-                gasPrice: gasPrice,
-                gasLimit: 100000,
-            });
+            let approveTx;
+            if (isProxySafe) {
+                const data = polymarketContract.interface.encodeFunctionData('approve', [
+                    POLYMARKET_EXCHANGE,
+                    maxAllowance,
+                ]);
+                approveTx = await executeSafeTransaction(
+                    PROXY_WALLET,
+                    wallet,
+                    { to: polymarketContract.address, data },
+                    { gasPrice: gasPrice, gasLimit: 200000 }
+                );
+            } else {
+                approveTx = await polymarketContract.approve(
+                    POLYMARKET_EXCHANGE,
+                    maxAllowance,
+                    {
+                        gasPrice: gasPrice,
+                        gasLimit: 100000,
+                    }
+                );
+            }
 
             console.log(`⏳ Transaction sent: ${approveTx.hash}`);
             console.log('⏳ Waiting for confirmation...\n');

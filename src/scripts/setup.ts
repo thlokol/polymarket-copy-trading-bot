@@ -127,12 +127,14 @@ async function setupWallet(): Promise<{ wallet: string; privateKey: string }> {
     console.log('  • Use a DEDICATED wallet for the bot');
     console.log('  • Never use your main wallet');
     console.log('  • Only keep trading capital in this wallet');
+    console.log('  • If Polymarket shows a different profile address, use that');
+    console.log('  • Funds must be in the trading (proxy) wallet address');
     console.log('  • Never share your private key!\n');
 
     let wallet = '';
     while (!wallet) {
         wallet = await question(
-            `${colors.green}Enter your Polygon wallet address: ${colors.reset}`
+            `${colors.green}Enter your Polymarket trading wallet (proxy) address: ${colors.reset}`
         );
 
         if (!isValidEthereumAddress(wallet)) {
@@ -456,4 +458,3 @@ async function main() {
 
 // Run the setup wizard
 main();
-

@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { getContractConfig } from '@polymarket/clob-client';
 import { ENV } from '../config/env';
+import { executeSafeTransaction } from '../utils/gnosisSafe';
 
 const PROXY_WALLET = ENV.PROXY_WALLET;
 const PRIVATE_KEY = ENV.PRIVATE_KEY;
@@ -25,10 +26,13 @@ async function setTokenAllowance() {
 
     const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const proxyCode = await provider.getCode(PROXY_WALLET);
+    const isProxySafe = proxyCode !== '0x';
 
     console.log(`📍 Wallet: ${PROXY_WALLET}`);
     console.log(`📍 CTF Contract: ${CTF_CONTRACT}`);
     console.log(`📍 Polymarket Exchange: ${POLYMARKET_EXCHANGE}\n`);
+    console.log(`🔎 Proxy wallet type: ${isProxySafe ? 'Gnosis Safe' : 'EOA'}\n`);
 
     try {
         // Create CTF contract instance
@@ -56,10 +60,24 @@ async function setTokenAllowance() {
         console.log(`⛽ Gas Price: ${ethers.utils.formatUnits(gasPrice, 'gwei')} Gwei`);
 
         // Approve Polymarket Exchange to trade all your CT tokens
-        const tx = await ctfContract.setApprovalForAll(POLYMARKET_EXCHANGE, true, {
-            gasPrice: gasPrice,
-            gasLimit: 100000,
-        });
+        let tx;
+        if (isProxySafe) {
+            const data = ctfContract.interface.encodeFunctionData('setApprovalForAll', [
+                POLYMARKET_EXCHANGE,
+                true,
+            ]);
+            tx = await executeSafeTransaction(
+                PROXY_WALLET,
+                wallet,
+                { to: CTF_CONTRACT, data },
+                { gasPrice, gasLimit: 200000 }
+            );
+        } else {
+            tx = await ctfContract.setApprovalForAll(POLYMARKET_EXCHANGE, true, {
+                gasPrice: gasPrice,
+                gasLimit: 100000,
+            });
+        }
 
         console.log(`⏳ Transaction sent: ${tx.hash}`);
         console.log('⏳ Waiting for confirmation...\n');
