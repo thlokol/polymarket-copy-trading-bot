@@ -88,6 +88,15 @@ export const main = async () => {
             Logger.warning('Health check failed, but continuing startup...');
         }
 
+        // Cleanup leaders from traders no longer in USER_ADDRESSES
+        Logger.info('Checking for leaders from unfollowed traders...');
+        const unfollowedCount = await leaderService.cleanupUnfollowedLeaders(USER_ADDRESSES);
+        if (unfollowedCount > 0) {
+            Logger.warning(`Released ${unfollowedCount} leader(s) from unfollowed traders`);
+        } else {
+            Logger.success('No unfollowed leaders to clean up');
+        }
+
         // Cleanup stale market leaders from previous runs
         Logger.info('Cleaning up stale market leaders...');
         const cleanedCount = await leaderService.cleanupStaleLeaders(168); // 7 days

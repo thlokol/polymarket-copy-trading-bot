@@ -207,6 +207,44 @@ class LeaderService {
     }
 
     /**
+     * Cleanup leaders whose addresses are no longer in the tracked traders list.
+     * Should be run on startup after changing USER_ADDRESSES in .env.
+     * @param trackedAddresses List of currently tracked trader addresses
+     * @returns Number of cleaned up leaders
+     */
+    async cleanupUnfollowedLeaders(trackedAddresses: string[]): Promise<number> {
+        const normalizedAddresses = trackedAddresses.map((addr) => addr.toLowerCase());
+
+        const unfollowedLeaders = await MarketLeader.find({
+            isActive: true,
+            leaderAddress: { $nin: normalizedAddresses },
+        }).lean();
+
+        if (unfollowedLeaders.length === 0) {
+            return 0;
+        }
+
+        const result = await MarketLeader.updateMany(
+            {
+                isActive: true,
+                leaderAddress: { $nin: normalizedAddresses },
+            },
+            { $set: { isActive: false } }
+        );
+
+        for (const leader of unfollowedLeaders) {
+            const typedLeader = leader as IMarketLeader;
+            const marketLabel =
+                typedLeader.slug || typedLeader.title || `${typedLeader.conditionId.slice(0, 8)}...`;
+            Logger.info(
+                `[Leader] Released unfollowed ${typedLeader.leaderAddress.slice(0, 8)}... from ${marketLabel}`
+            );
+        }
+
+        return result.modifiedCount;
+    }
+
+    /**
      * Cleanup stale leaders that may have been orphaned.
      * Should be run on startup to handle cases where bot crashed mid-trade.
      * @param maxAgeHours Maximum age in hours before a leader is considered stale (default: 168 = 7 days)
