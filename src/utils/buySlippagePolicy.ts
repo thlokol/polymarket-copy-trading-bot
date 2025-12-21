@@ -13,7 +13,7 @@ const isFinitePositive = (value: number): boolean => Number.isFinite(value) && v
  * - Very low prices require proportional slippage to avoid paying 2x+.
  */
 export const getBuyDecision = (
-    originalExecutedPrice: number,
+    originalExecutedPrice: number | string,
     config?: Partial<{
         deathZonePrice: number; // above this: never buy
         highZoneMin: number; // >= this: strict absolute slippage
@@ -21,6 +21,7 @@ export const getBuyDecision = (
         combatZoneMin: number; // >= this: moderate absolute slippage
         combatZoneAbsSlippage: number;
         zebraZoneMaxMultiplier: number; // below combatZoneMin: proportional cap
+        absoluteMaxAcceptablePriceCap: number; // safety cap on maxAcceptablePrice
     }>
 ): BuyDecision => {
     const deathZonePrice = config?.deathZonePrice ?? 0.95;
@@ -29,25 +30,35 @@ export const getBuyDecision = (
     const combatZoneMin = config?.combatZoneMin ?? 0.2;
     const combatZoneAbsSlippage = config?.combatZoneAbsSlippage ?? 0.03;
     const zebraZoneMaxMultiplier = config?.zebraZoneMaxMultiplier ?? 1.2;
+    const absoluteMaxAcceptablePriceCap = config?.absoluteMaxAcceptablePriceCap ?? 0.99;
 
-    if (!isFinitePositive(originalExecutedPrice)) {
+    const priceNum = Number(originalExecutedPrice);
+
+    if (!isFinitePositive(priceNum)) {
         return {
             shouldBuy: false,
             maxAcceptablePrice: null,
-            reason: `invalid original price (${originalExecutedPrice})`,
+            reason: `invalid original price (${String(originalExecutedPrice)})`,
         };
     }
 
-    if (originalExecutedPrice > deathZonePrice) {
+    const capMax = (value: number): number => {
+        if (!Number.isFinite(absoluteMaxAcceptablePriceCap) || absoluteMaxAcceptablePriceCap <= 0) {
+            return value;
+        }
+        return Math.min(value, absoluteMaxAcceptablePriceCap);
+    };
+
+    if (priceNum > deathZonePrice) {
         return {
             shouldBuy: false,
             maxAcceptablePrice: null,
-            reason: `death zone: original price ${originalExecutedPrice.toFixed(4)} > ${deathZonePrice.toFixed(4)}`,
+            reason: `death zone: original price ${priceNum.toFixed(4)} > ${deathZonePrice.toFixed(4)}`,
         };
     }
 
-    if (originalExecutedPrice >= highZoneMin) {
-        const maxAcceptablePrice = originalExecutedPrice + highZoneAbsSlippage;
+    if (priceNum >= highZoneMin) {
+        const maxAcceptablePrice = capMax(priceNum + highZoneAbsSlippage);
         return {
             shouldBuy: true,
             maxAcceptablePrice,
@@ -55,8 +66,8 @@ export const getBuyDecision = (
         };
     }
 
-    if (originalExecutedPrice >= combatZoneMin) {
-        const maxAcceptablePrice = originalExecutedPrice + combatZoneAbsSlippage;
+    if (priceNum >= combatZoneMin) {
+        const maxAcceptablePrice = capMax(priceNum + combatZoneAbsSlippage);
         return {
             shouldBuy: true,
             maxAcceptablePrice,
@@ -64,11 +75,10 @@ export const getBuyDecision = (
         };
     }
 
-    const maxAcceptablePrice = originalExecutedPrice * zebraZoneMaxMultiplier;
+    const maxAcceptablePrice = capMax(priceNum * zebraZoneMaxMultiplier);
     return {
         shouldBuy: true,
         maxAcceptablePrice,
         reason: `zebra zone: x${zebraZoneMaxMultiplier.toFixed(2)} cap`,
     };
 };
-
