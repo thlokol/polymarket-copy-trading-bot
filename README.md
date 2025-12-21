@@ -117,6 +117,7 @@ This bot monitors Polymarket via `https://data-api.polymarket.com/activity?user=
 - Use a dedicated wallet and keep balances small until you trust your setup.
 - Always run `npm run health-check` before going live.
 - Start with conservative sizing and monitor activity regularly.
+- BUY slippage is dynamic: the bot skips buys above ~$0.95, uses tighter caps near $1.00, moderate caps mid-range, and proportional caps for very low prices (to avoid paying 2x+).
 
 ## Disclaimer
 

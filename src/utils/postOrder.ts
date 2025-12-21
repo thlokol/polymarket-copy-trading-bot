@@ -5,6 +5,7 @@ import { getUserActivityModel } from '../models/userHistory';
 import { leaderService } from '../services/leaderService';
 import Logger from './logger';
 import { calculateOrderSize, getTradeMultiplier } from '../config/copyStrategy';
+import { getBuyDecision } from './buySlippagePolicy';
 
 const RETRY_LIMIT = ENV.RETRY_LIMIT;
 const COPY_STRATEGY_CONFIG = ENV.COPY_STRATEGY_CONFIG;
@@ -212,13 +213,23 @@ const postOrder = async (
 
             Logger.info(`Best ask: ${minPriceAsk.size} @ $${minPriceAsk.price}`);
             // When the source trade is aggregated from multiple fills, use the worst executed price
-            // (maxPrice for BUY) as the reference for slippage checks to avoid false negatives.
+            // (maxPrice for BUY) as the reference for slippage.
             const referencePrice =
                 typeof (trade as any).maxPrice === 'number' && Number.isFinite((trade as any).maxPrice)
                     ? (trade as any).maxPrice
                     : trade.price;
-            if (parseFloat(minPriceAsk.price) - 0.05 > referencePrice) {
-                Logger.warning('Price slippage too high - skipping trade');
+
+            const decision = getBuyDecision(referencePrice);
+            if (!decision.shouldBuy) {
+                Logger.warning(`Skipping BUY: ${decision.reason}`);
+                await UserActivity.updateOne({ _id: trade._id }, { bot: true });
+                break;
+            }
+
+            if (parseFloat(minPriceAsk.price) > decision.maxAcceptablePrice) {
+                Logger.warning(
+                    `Price slippage too high - skipping trade (best ask $${parseFloat(minPriceAsk.price).toFixed(4)} > max $${decision.maxAcceptablePrice.toFixed(4)}; ${decision.reason})`
+                );
                 await UserActivity.updateOne({ _id: trade._id }, { bot: true });
                 break;
             }
