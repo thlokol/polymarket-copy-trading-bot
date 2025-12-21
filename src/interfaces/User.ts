@@ -10,6 +10,11 @@ export interface UserActivityInterface {
     usdcSize: number;
     transactionHash: string;
     price: number;
+    fillCount?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    firstFillTimestamp?: number;
+    lastFillTimestamp?: number;
     asset: string;
     side: string;
     outcomeIndex: number;

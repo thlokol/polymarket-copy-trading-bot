@@ -1,6 +1,7 @@
 import { ENV } from '../config/env';
 import { BOT_START_TIMESTAMP } from '../config/runtime';
 import { getUserActivityModel, getUserPositionModel } from '../models/userHistory';
+import { aggregateTradeActivities } from '../utils/aggregateTradeActivities';
 import fetchData from '../utils/fetchData';
 import Logger from '../utils/logger';
 
@@ -117,12 +118,14 @@ const fetchTradeData = async () => {
                 continue;
             }
 
+            const aggregatedActivities = aggregateTradeActivities(activities);
+
             const nowSeconds = Math.floor(Date.now() / 1000);
             const tooOldCutoff = nowSeconds - TOO_OLD_TIMESTAMP * 60 * 60;
             const minTimestamp = Math.max(BOT_START_TIMESTAMP, tooOldCutoff);
 
             // Process each activity
-            for (const activity of activities) {
+            for (const activity of aggregatedActivities) {
                 // Skip if too old or before this bot run started
                 if (activity.timestamp < minTimestamp) {
                     continue;
@@ -131,6 +134,10 @@ const fetchTradeData = async () => {
                 // Check if this trade already exists in database
                 const existingActivity = await UserActivity.findOne({
                     transactionHash: activity.transactionHash,
+                    conditionId: activity.conditionId,
+                    asset: activity.asset,
+                    side: activity.side,
+                    type: activity.type,
                 }).exec();
 
                 if (existingActivity) {
@@ -147,6 +154,11 @@ const fetchTradeData = async () => {
                     usdcSize: activity.usdcSize,
                     transactionHash: activity.transactionHash,
                     price: activity.price,
+                    fillCount: activity.fillCount,
+                    minPrice: activity.minPrice,
+                    maxPrice: activity.maxPrice,
+                    firstFillTimestamp: activity.firstFillTimestamp,
+                    lastFillTimestamp: activity.lastFillTimestamp,
                     asset: activity.asset,
                     side: activity.side,
                     outcomeIndex: activity.outcomeIndex,

@@ -211,7 +211,13 @@ const postOrder = async (
             }, orderBook.asks[0]);
 
             Logger.info(`Best ask: ${minPriceAsk.size} @ $${minPriceAsk.price}`);
-            if (parseFloat(minPriceAsk.price) - 0.05 > trade.price) {
+            // When the source trade is aggregated from multiple fills, use the worst executed price
+            // (maxPrice for BUY) as the reference for slippage checks to avoid false negatives.
+            const referencePrice =
+                typeof (trade as any).maxPrice === 'number' && Number.isFinite((trade as any).maxPrice)
+                    ? (trade as any).maxPrice
+                    : trade.price;
+            if (parseFloat(minPriceAsk.price) - 0.05 > referencePrice) {
                 Logger.warning('Price slippage too high - skipping trade');
                 await UserActivity.updateOne({ _id: trade._id }, { bot: true });
                 break;

@@ -104,6 +104,14 @@ docker compose up --build
 - Daily logs: `logs/bot-YYYY-MM-DD.log`
 - MongoDB stores trade history and analysis data
 
+## Important: Trades vs Orders (API Limits)
+
+This bot monitors Polymarket via `https://data-api.polymarket.com/activity?user=...&type=TRADE`, which returns **executed trades (fills)** — not “order intent” (placed limit order size, remaining quantity, open orders, etc).
+
+- If a trader’s order fills in parts over time, the Data API emits multiple `TRADE` activities, and the bot will mirror each execution.
+- The Data API does **not** include an `orderId` in `TRADE` activities, and Polymarket’s CLOB open-orders endpoints require the trader’s authenticated API key, so the bot cannot reconstruct “the whole original order” for another user.
+- One on-chain settlement transaction can include multiple fills at different prices (same `transactionHash`). The bot aggregates those into a single executed trade per market+side before copying.
+
 ## Safety Notes
 
 - Use a dedicated wallet and keep balances small until you trust your setup.
