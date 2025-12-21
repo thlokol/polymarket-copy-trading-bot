@@ -106,18 +106,36 @@ docker compose up --build
 
 ## Important: Trades vs Orders (API Limits)
 
-This bot monitors Polymarket via `https://data-api.polymarket.com/activity?user=...&type=TRADE`, which returns **executed trades (fills)** — not “order intent” (placed limit order size, remaining quantity, open orders, etc).
+This bot monitors Polymarket via `https://data-api.polymarket.com/activity?user=...&type=TRADE`, which returns **executed trades (fills)** — not "order intent" (placed limit order size, remaining quantity, open orders, etc).
 
-- If a trader’s order fills in parts over time, the Data API emits multiple `TRADE` activities, and the bot will mirror each execution.
-- The Data API does **not** include an `orderId` in `TRADE` activities, and Polymarket’s CLOB open-orders endpoints require the trader’s authenticated API key, so the bot cannot reconstruct “the whole original order” for another user.
-- One on-chain settlement transaction can include multiple fills at different prices (same `transactionHash`). The bot aggregates those into a single executed trade per market+side before copying.
+- The Data API does **not** include an `orderId` in `TRADE` activities, and Polymarket's CLOB open-orders endpoints require the trader's authenticated API key, so the bot cannot reconstruct "the whole original order" for another user.
+- One on-chain settlement transaction can include multiple fills at different prices (same `transactionHash`). The bot **aggregates** those into a single executed trade per market+side before copying.
+- If a trader's order fills in parts **across different transactions** over time, the bot will mirror each transaction separately.
+
+## Slippage Protection
+
+### BUY Orders
+
+The bot uses a dynamic slippage policy based on the original executed price:
+
+| Zone | Price Range | Max Slippage | Behavior |
+|------|-------------|--------------|----------|
+| Death zone | > $0.95 | — | **Skipped** (too close to $1.00, little upside) |
+| High zone | $0.80 – $0.95 | +$0.01 | Tight cap to avoid overpaying near certainty |
+| Combat zone | $0.20 – $0.80 | +$0.03 | Moderate cap for typical trades |
+| Zebra zone | < $0.20 | ×1.2 | Proportional cap to avoid paying 2x+ on cheap contracts |
+
+All BUY orders are capped at a maximum price of $0.99.
+
+### SELL Orders
+
+SELL orders **do not have slippage protection**. The bot accepts the best available bid in the order book. This is intentional: when exiting a position, getting out is usually more important than optimizing the exit price.
 
 ## Safety Notes
 
 - Use a dedicated wallet and keep balances small until you trust your setup.
 - Always run `npm run health-check` before going live.
 - Start with conservative sizing and monitor activity regularly.
-- BUY slippage is dynamic: the bot skips buys above ~$0.95, uses tighter caps near $1.00, moderate caps mid-range, and proportional caps for very low prices (to avoid paying 2x+).
 
 ## Disclaimer
 
